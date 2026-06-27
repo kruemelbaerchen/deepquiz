@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>DeepQuiz — how well do they really know you?</title>
+<style>
+  :root{
+    --bg1:#1b1035; --bg2:#2d1b4e; --card:#211640; --card2:#2a1c52;
+    --accent:#ff6b9d; --accent2:#c44bef; --gold:#ffd166;
+    --green:#3ddc97; --red:#ff5d73; --yellow:#ffc44d;
+    --text:#f3eefc; --muted:#a99cc9; --line:#3a2a63; --blue:#6fb6ff;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    background:radial-gradient(circle at 30% 8%, #3a2068, #1b1035 60%);
+    min-height:100vh; min-height:100dvh; display:flex; align-items:center; justify-content:center; color:var(--text); padding:16px;}
+  .phone{width:400px; max-width:100%; height:820px; max-height:97vh; max-height:97dvh;
+    background:linear-gradient(165deg,var(--bg2),var(--bg1)); border-radius:34px;
+    box-shadow:0 30px 80px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.06);
+    overflow:hidden; display:flex; flex-direction:column; position:relative;}
+  .topbar{padding:16px 22px 8px; display:flex; align-items:center; justify-content:space-between; font-size:13px; color:var(--muted);}
+  .topbar .right{display:flex; gap:12px; align-items:center;}
+  .topbar a{color:var(--muted); cursor:pointer; text-decoration:none;}
+  .screen{flex:1; overflow-y:auto; padding:8px 22px 22px; display:flex; flex-direction:column;}
+  .screen::-webkit-scrollbar{width:0;}
+  h1{font-size:32px; font-weight:800; letter-spacing:-.6px; line-height:1.08;}
+  h2{font-size:23px; font-weight:700; line-height:1.25; margin-bottom:4px;}
+  .sub{color:var(--muted); font-size:15px; line-height:1.5;}
+  .logo{font-weight:800; font-size:18px; background:linear-gradient(90deg,var(--accent),var(--gold)); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .btn{background:linear-gradient(90deg,var(--accent),#c44bef); color:#fff; border:none; padding:16px; border-radius:16px;
+    font-size:16px; font-weight:700; width:100%; cursor:pointer; transition:transform .12s, box-shadow .2s; box-shadow:0 8px 24px rgba(255,107,157,.35);}
+  .btn:active{transform:scale(.97);} .btn:disabled{opacity:.5; box-shadow:none; cursor:default;}
+  .btn.secondary{background:rgba(255,255,255,.08); box-shadow:none; color:var(--text);}
+  .btn.ghost{background:transparent; box-shadow:none; color:var(--muted); border:1px solid var(--line);}
+  .pill{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; padding:5px 11px; border-radius:99px; background:rgba(255,255,255,.08);}
+  .l1{color:#7ee0a0;} .l2{color:#6fb6ff;} .l3{color:#c89bff;} .l4{color:#ff7aa8;}
+  .field{width:100%; padding:15px 16px; border-radius:14px; border:1.5px solid var(--line); background:var(--card); color:var(--text); font-size:17px; outline:none;}
+  .field:focus{border-color:var(--accent);}
+  .levels{display:flex; flex-direction:column; gap:12px; margin-top:8px;}
+  .lvl-card{background:var(--card); border:1.5px solid var(--line); border-radius:18px; padding:15px; cursor:pointer; transition:.15s; display:flex; align-items:center; gap:14px;}
+  .lvl-card:hover{border-color:var(--accent);}
+  .lvl-card.sel{border-color:var(--accent); background:var(--card2); box-shadow:0 0 0 3px rgba(255,107,157,.18);}
+  .lvl-emoji{font-size:25px;} .lvl-name{font-weight:700; font-size:16px;} .lvl-desc{color:var(--muted); font-size:13px; margin-top:2px;}
+  .prog{display:flex; gap:5px; margin:6px 0 18px;}
+  .prog span{height:5px; flex:1; border-radius:99px; background:rgba(255,255,255,.12);}
+  .prog span.done{background:linear-gradient(90deg,var(--accent),var(--gold));} .prog span.cur{background:rgba(255,255,255,.35);}
+  .qhead{display:flex; align-items:center; gap:10px; margin-bottom:12px;}
+  .who{color:var(--muted); font-size:14px; margin-bottom:9px;} .who b{color:var(--accent);}
+  .qtext{font-size:25px; font-weight:700; line-height:1.25; margin-bottom:22px;}
+  .options{display:flex; flex-direction:column; gap:11px;}
+  .opt{background:var(--card); border:1.5px solid var(--line); border-radius:16px; padding:16px; font-size:16px; font-weight:600; cursor:pointer; transition:.15s; text-align:left;}
+  .opt:hover{border-color:var(--accent);}
+  .opt.correct{border-color:var(--green); background:rgba(61,220,151,.14);} .opt.wrong{border-color:var(--red); background:rgba(255,93,115,.12);}
+  .opt .tag{float:right; font-size:12px; font-weight:700;} .opt.correct .tag{color:var(--green);} .opt.wrong .tag{color:var(--red);}
+  .binary{display:flex; gap:12px;} .binary .opt{flex:1; text-align:center; padding:26px 12px; font-size:18px;}
+  .slider-wrap{margin:10px 0 6px;}
+  .slider-labels{display:flex; justify-content:space-between; color:var(--muted); font-size:13px; margin-bottom:16px; gap:12px;}
+  .slider-labels span{flex:1;} .slider-labels span:last-child{text-align:right;}
+  input[type=range]{width:100%; -webkit-appearance:none; appearance:none; height:8px; border-radius:99px; background:linear-gradient(90deg,#6fb6ff,#ff7aa8); outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:32px; height:32px; border-radius:50%; background:#fff; cursor:pointer; box-shadow:0 3px 10px rgba(0,0,0,.4); border:3px solid var(--accent);}
+  input[type=range]::-moz-range-thumb{width:30px; height:30px; border-radius:50%; background:#fff; border:3px solid var(--accent); cursor:pointer;}
+  .marker{position:relative; height:0;}
+  .marker .dot{position:absolute; top:-30px; transform:translateX(-50%); font-size:12px; font-weight:700; white-space:nowrap;}
+  .marker .dot.mia{color:var(--gold);} .marker .dot.you{color:var(--blue);} .marker .dot:after{content:'▼'; display:block; text-align:center; font-size:9px;}
+  .reveal{margin-top:20px; background:linear-gradient(160deg, rgba(196,75,239,.18), rgba(255,107,157,.12)); border:1px solid var(--line); border-radius:18px; padding:16px; animation:pop .35s ease;}
+  @keyframes pop{from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:none;}}
+  .reveal .verdict{font-size:18px; font-weight:800; margin-bottom:8px;}
+  .v-correct{color:var(--green);} .v-close{color:var(--yellow);} .v-wrong{color:var(--red);}
+  .reveal .answer{font-size:14px; color:var(--muted); line-height:1.7;} .reveal .answer b{color:var(--text);}
+  .reveal .answer .you{color:var(--blue);} .reveal .answer .mia{color:var(--gold);}
+  .footer-btn{margin-top:auto; padding-top:18px;} .stack{display:flex; flex-direction:column; gap:10px;}
+  .score-ring{width:180px; height:180px; margin:14px auto 6px; position:relative;}
+  .score-num{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;}
+  .score-num .big{font-size:48px; font-weight:800; line-height:1;} .score-num .small{font-size:13px; color:var(--muted);}
+  .verdict-line{text-align:center; font-size:20px; font-weight:800; margin:6px 0 2px;}
+  .recap{margin-top:14px; display:flex; flex-direction:column; gap:8px;}
+  .recap-row{display:flex; align-items:center; gap:10px; font-size:13px; background:var(--card); border-radius:12px; padding:10px 12px;}
+  .recap-row .ic{width:20px; text-align:center;} .recap-row .qq{flex:1; color:var(--muted);}
+  .linkbox{display:flex; gap:8px; align-items:center; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:13px 14px; font-size:14px; color:var(--blue); word-break:break-all; line-height:1.4;}
+  .toast{position:absolute; left:50%; bottom:90px; transform:translateX(-50%) translateY(10px); opacity:0; background:#000c; border:1px solid var(--line); padding:10px 16px; border-radius:99px; font-size:13px; font-weight:600; transition:.25s; pointer-events:none; max-width:80%; text-align:center;}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .lb{display:flex; flex-direction:column; gap:8px; margin-top:8px;}
+  .lb-row{display:flex; align-items:center; gap:12px; background:var(--card); border-radius:12px; padding:12px 14px;}
+  .lb-row.top{border:1px solid var(--gold);}
+  .lb-rank{font-weight:800; color:var(--muted); width:24px; text-align:center;} .lb-name{flex:1; font-weight:700;} .lb-pct{font-weight:800; color:var(--gold);}
+  .how{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px 16px; margin-top:18px;}
+  .how .step{display:flex; gap:12px; align-items:flex-start; font-size:14px; color:var(--muted); line-height:1.4;}
+  .how .step + .step{margin-top:11px;}
+  .how .n{width:24px; height:24px; flex-shrink:0; border-radius:50%; background:rgba(255,107,157,.18); color:var(--accent); font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center;}
+  .how .step b{color:var(--text);}
+  .card-row{display:flex; align-items:center; gap:12px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:13px 14px; margin-bottom:10px;}
+  .card-row .meta{flex:1;} .card-row .meta .t{font-weight:700;} .card-row .meta .s{font-size:12px; color:var(--muted); margin-top:2px;}
+  .mini{font-size:13px; padding:9px 12px; border-radius:11px; width:auto;}
+  .center{text-align:center;} .mt{margin-top:18px;} .mt2{margin-top:26px;}
+  .hint{font-size:12px; color:var(--muted); text-align:center; margin-top:10px; line-height:1.5;}
+  .err{color:var(--red); font-size:13px; text-align:center; min-height:16px; margin-top:8px;}
+  .big-emoji{font-size:56px; text-align:center; margin-bottom:6px;}
+  .spin{width:34px;height:34px;border-radius:50%;border:3px solid rgba(255,255,255,.15);border-top-color:var(--accent);animation:rot 1s linear infinite;margin:40px auto;}
+  @keyframes rot{to{transform:rotate(360deg)}}
+  /* On a real phone, fill the screen — no mockup bezel */
+  @media (max-width:430px){
+    body{padding:0;}
+    .phone{width:100%; height:100vh; height:100dvh; max-height:none; border-radius:0; box-shadow:none;}
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div class="phone">
+  <div class="topbar"><span class="logo">◆ DeepQuiz</span><span class="right" id="topright"></span></div>
+  <div class="screen" id="screen"><div class="spin"></div></div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+// ===================== CONFIG =====================
+const SUPABASE_URL = 'https://dkacmqfobdtmimyxckzk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRrYWNtcWZvYmR0bWlteXhja3prIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1Nzc4NjMsImV4cCI6MjA5ODE1Mzg2M30.2OIk_kvqgDg4_d3qZoL7zYyxyi-G3sMPLoQTum29fY8';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ===================== QUESTION POOL =====================
+const Q = [
+  {id:'w1', lvl:1, fmt:'binary', label:'Messi or Ronaldo?', options:['Messi','Ronaldo']},
+  {id:'w2', lvl:1, fmt:'binary', label:'Coffee or tea?', options:['Coffee','Tea']},
+  {id:'w3', lvl:1, fmt:'binary', label:'Beach or mountains?', options:['Beach','Mountains']},
+  {id:'w4', lvl:1, fmt:'binary', label:'Texts or calls?', options:['Texts','Calls']},
+  {id:'w5', lvl:1, fmt:'slider', label:'Morning person?', poles:['Night owl','Early bird']},
+  {id:'w6', lvl:1, fmt:'slider', label:'Cat or dog person?', poles:['Full cat','Full dog']},
+  {id:'w7', lvl:1, fmt:'slider', label:'Planner or spontaneous?', poles:['Everything planned','Wing it']},
+  {id:'w8', lvl:1, fmt:'mc', label:'Your perfect Sunday?', options:['Stay in bed','Out in nature','See friends','Get things done']},
+  {id:'w9', lvl:1, fmt:'mc', label:'Go-to comfort food?', options:['Pizza / pasta','Burger / fries','Something Asian','Something sweet']},
+  {id:'w10', lvl:1, fmt:'mc', label:'Guilty-pleasure way to waste time?', options:['Social media','Series','Gaming','Online shopping']},
+  {id:'p1', lvl:2, fmt:'mc', label:'What gets you irritated fastest?', options:['Lateness','Dishonesty','Being told what to do','Being ignored']},
+  {id:'p2', lvl:2, fmt:'slider', label:'Optimist or realist?', poles:['It’ll work out','Expect the worst']},
+  {id:'p3', lvl:2, fmt:'slider', label:'How much do you care what others think?', poles:['Not at all','A lot']},
+  {id:'p4', lvl:2, fmt:'slider', label:'Head or heart?', poles:['All heart','All head']},
+  {id:'p5', lvl:2, fmt:'slider', label:'How hard is it to apologize first?', poles:['Effortless','Almost impossible']},
+  {id:'p6', lvl:2, fmt:'binary', label:'A beautiful lie or a hard truth?', options:['Beautiful lie','Hard truth']},
+  {id:'p7', lvl:2, fmt:'binary', label:'Feared or loved?', options:['Feared','Loved']},
+  {id:'p8', lvl:2, fmt:'mc', label:'Secretly a little proud of your…', options:['Humor','Loyalty','Mind','Grit']},
+  {id:'p9', lvl:2, fmt:'mc', label:'How do you handle stress?', options:['Withdraw','Get snappy','Bury myself in work','Reach for closeness']},
+  {id:'p10', lvl:2, fmt:'slider', label:'How much of a rule-follower are you?', poles:['Rules bend','Rules are rules']},
+  {id:'d1', lvl:3, fmt:'mc', label:'Your deepest fear?', options:['Not being enough','Ending up alone','Being forgotten','Missing my life']},
+  {id:'d2', lvl:3, fmt:'slider', label:'How at peace are you with your past?', poles:['Lots unresolved','Fully at peace']},
+  {id:'d3', lvl:3, fmt:'slider', label:'What’s worse for you?', poles:['Being left','Feeling trapped']},
+  {id:'d4', lvl:3, fmt:'slider', label:'How much does death scare you?', poles:['Not at all','A lot']},
+  {id:'d5', lvl:3, fmt:'mc', label:'What would you most regret NOT doing?', options:['Telling someone the truth','Taking a risk','Saying no more often','More time with someone']},
+  {id:'d6', lvl:3, fmt:'slider', label:'How seen do you feel by the people around you?', poles:['Barely','Completely']},
+  {id:'d7', lvl:3, fmt:'slider', label:'Do you believe you deserve love, just as you are?', poles:['I must earn it','Unconditionally']},
+  {id:'d8', lvl:3, fmt:'mc', label:'What drives you at the core?', options:['Recognition','Freedom','Security','Leaving a mark']},
+  {id:'d9', lvl:3, fmt:'slider', label:'How easily do you cry?', poles:['Almost never','Very easily']},
+  {id:'d10', lvl:3, fmt:'mc', label:'One year left to live — what changes first?', options:['My job','A relationship','My courage','Nothing, I live right']},
+  {id:'s1', lvl:4, fmt:'binary', label:'Lights on or off?', options:['On','Off']},
+  {id:'s2', lvl:4, fmt:'binary', label:'Top or bottom?', options:['Top','Bottom']},
+  {id:'s3', lvl:4, fmt:'slider', label:'How adventurous in bed?', poles:['Classic','Anything goes']},
+  {id:'s4', lvl:4, fmt:'slider', label:'How much do you separate sex from feelings?', poles:['Inseparable','Totally separate']},
+  {id:'s5', lvl:4, fmt:'mc', label:'Biggest turn-on?', options:['Confidence','Humor','Physical closeness','Words / tension']},
+  {id:'s6', lvl:4, fmt:'slider', label:'How central is sex in a relationship for you?', poles:['Side thing','Absolutely central']},
+  {id:'s7', lvl:4, fmt:'slider', label:'Romance or passion?', poles:['Pure romance','Pure passion']},
+  {id:'s8', lvl:4, fmt:'slider', label:'Who makes the first move?', poles:['I always wait','I always start']},
+  {id:'s9', lvl:4, fmt:'slider', label:'How openly do you talk about what you want in bed?', poles:['Not at all','Totally open']},
+  {id:'s10', lvl:4, fmt:'mc', label:'What gets you going more?', options:['Being seduced','Doing the seducing','Both, taking turns','The tension before']},
+  {id:'w11', lvl:1, fmt:'binary', label:'Sweet or savory?', options:['Sweet','Savory']},
+  {id:'w12', lvl:1, fmt:'binary', label:'Window or aisle seat?', options:['Window','Aisle']},
+  {id:'w13', lvl:1, fmt:'slider', label:'How competitive are you?', poles:['Just for fun','Must win']},
+  {id:'w14', lvl:1, fmt:'mc', label:'Your group-chat role?', options:['The planner','The lurker','The meme-er','The 3am replier']},
+  {id:'p11', lvl:2, fmt:'mc', label:'Your love language (receiving)?', options:['Words','Quality time','Touch','Acts of help','Gifts']},
+  {id:'p12', lvl:2, fmt:'slider', label:'How easily do you trust new people?', poles:['Very slowly','Instantly']},
+  {id:'p13', lvl:2, fmt:'binary', label:'Lead or follow?', options:['Lead','Follow']},
+  {id:'p14', lvl:2, fmt:'mc', label:'What do you secretly judge people for?', options:['Bad manners','Being fake','Laziness','Cruelty']},
+  {id:'d11', lvl:3, fmt:'mc', label:'When you’re hurt, you…', options:['Go quiet','Lash out','Pretend it’s fine','Talk it out']},
+  {id:'d12', lvl:3, fmt:'slider', label:'Do you live in the moment or for the future?', poles:['All now','All later']},
+  {id:'d13', lvl:3, fmt:'slider', label:'Is the person others see the real you?', poles:['A mask','Fully me']},
+  {id:'d14', lvl:3, fmt:'mc', label:'At 80, what would you be proudest of?', options:['A family','Something I built','Living free','Helping others']},
+  {id:'s11', lvl:4, fmt:'binary', label:'Slow burn or right away?', options:['Slow burn','Right away']},
+  {id:'s12', lvl:4, fmt:'slider', label:'How jealous are you?', poles:['Never','Very']},
+  {id:'s13', lvl:4, fmt:'mc', label:'Most attractive trait in someone?', options:['Confidence','Kindness','Mystery','Ambition']},
+  {id:'s14', lvl:4, fmt:'slider', label:'PDA — how into it are you?', poles:['Keep it private','Bring it on']},
+];
+const QBYID = Object.fromEntries(Q.map(q=>[q.id,q]));
+const LEVELS = [
+  {n:1, emoji:'🟢', name:'Warmup', desc:'Light, fun, taste'},
+  {n:2, emoji:'🔵', name:'Personal', desc:'Opinions & character'},
+  {n:3, emoji:'🟣', name:'Deep', desc:'Vulnerable, real closeness'},
+  {n:4, emoji:'🔴', name:'Spicy', desc:'Cheeky, sexy, intimate'},
+];
+const DECK_SIZE = 8;
+
+// ===================== helpers =====================
+const screen = document.getElementById('screen');
+const $top = document.getElementById('topright');
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const val = id => { const e=document.getElementById(id); return e? e.value.trim() : ''; };
+const lvlMeta = n => LEVELS[n-1];
+function answerText(q, v){ if(v==null) return '—'; return q.fmt==='slider' ? (v>=50?q.poles[1]:q.poles[0]) : q.options[v]; }
+function shortCode(){ const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=''; for(let i=0;i<6;i++) s+=a[Math.floor(Math.random()*a.length)]; return s; }
+function buildDeck(cap){
+  const pool=Q.filter(q=>q.lvl<=cap).slice();
+  for(let k=pool.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[pool[k],pool[j]]=[pool[j],pool[k]];}
+  const picked=pool.slice(0,Math.min(DECK_SIZE,pool.length));
+  picked.sort((a,b)=>a.lvl-b.lvl);
+  return picked.map(q=>q.id);
+}
+function baseUrl(){ return location.origin + location.pathname; }
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2000); }
+function copyText(t){ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('Copied ✓')).catch(()=>toast('Long-press to copy')); else toast('Long-press to copy'); }
+function busy(id,on){ const b=document.getElementById(id); if(b){ b.disabled=on; b.dataset._t=b.dataset._t||b.textContent; if(on) b.textContent='…'; else b.textContent=b.dataset._t; } }
+function topRight(){ $top.innerHTML = me&&me.username ? `<a onclick="home()">${esc(me.username)}</a> · <a onclick="doLogout()">Log out</a>` : ''; }
+
+// ===================== auth state =====================
+let me = null;   // {id, username} when logged in; null for guests
+let authMode='signup';
+let challengeBackTo=null, pendingAction=null;  // "challenge back" loop state
+
+async function init(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session && session.user){ await loadMe(session.user); }
+  route();
+}
+async function loadMe(user){
+  const { data } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
+  if(data){ me={ id:data.id, username:data.username }; return true; }
+  me={ id:user.id, username:null, needsProfile:true }; return false;
+}
+function route(){
+  topRight();
+  const h=location.hash||'';
+  const m=h.match(/^#c=([A-Z0-9]+)$/i);
+  if(me && me.needsProfile) return screenUsername();
+  if(m) return openChallenge(m[1].toUpperCase());
+  if(me) return home();
+  authScreen();
+}
+window.addEventListener('hashchange', route);
+
+// ===================== AUTH SCREENS =====================
+function authScreen(){
+  topRight();
+  const signup = authMode==='signup';
+  screen.innerHTML = `
+    <div class="mt"><h1>Deep<span style="color:var(--accent)">Quiz</span></h1>
+      ${(pendingAction==='create'&&challengeBackTo)
+        ? `<p class="sub mt">Create a quick account to challenge <b style="color:var(--accent)">${esc(challengeBackTo)}</b> back.</p>`
+        : `<p class="sub mt">How well do your friends really know you? Build a challenge, share it, and see who knows you best.</p>`}</div>
+    <div class="mt2 stack">
+      <input class="field" id="username" placeholder="Username (shown to friends)" maxlength="24" autocomplete="off">
+      <input class="field" id="password" placeholder="Password (min. 6 chars)" type="password" autocomplete="${signup?'new-password':'current-password'}">
+    </div>
+    <div class="err" id="autherr"></div>
+    <div class="footer-btn stack">
+      <button class="btn" id="authBtn">${signup?'Create account':'Log in'}</button>
+      <button class="btn ghost" id="toggleBtn">${signup?'I already have an account':'Create a new account'}</button>
+      <p class="hint">No email needed — just a username and password.</p>
+    </div>`;
+  document.getElementById('authBtn').onclick = signup?doSignup:doLogin;
+  document.getElementById('toggleBtn').onclick=()=>{ authMode=signup?'login':'signup'; authScreen(); };
+}
+function setErr(m){ const e=document.getElementById('autherr'); if(e) e.textContent=m||''; }
+
+// username-first: derive a stable, hidden email from the username (user never sees it)
+async function emailForUsername(u){
+  const norm=u.trim().toLowerCase();
+  const buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(norm));
+  const hex=Array.from(new Uint8Array(buf)).slice(0,12).map(b=>b.toString(16).padStart(2,'0')).join('');
+  return 'u'+hex+'@deepquizplayers.com';
+}
+async function doSignup(){
+  const username=val('username'), password=val('password'); setErr('');
+  if(!username||!password){ setErr('Pick a username and a password.'); return; }
+  if(username.length<2){ setErr('Username is too short.'); return; }
+  if(password.length<6){ setErr('Password must be at least 6 characters.'); return; }
+  busy('authBtn',true);
+  const { data:exists } = await sb.from('profiles').select('id').eq('username',username).maybeSingle();
+  if(exists){ setErr('That username is taken — pick another.'); busy('authBtn',false); return; }
+  const email=await emailForUsername(username);
+  const { data, error } = await sb.auth.signUp({ email, password });
+  if(error){ setErr(/already registered/i.test(error.message)?'That username is taken — pick another.':error.message); busy('authBtn',false); return; }
+  if(!data.session){ setErr('Something went wrong — try logging in.'); authMode='login'; busy('authBtn',false); return; }
+  const { error:pErr } = await sb.from('profiles').insert({ id:data.user.id, username });
+  if(pErr){ setErr(pErr.code==='23505'?'That username is taken — pick another.':pErr.message); busy('authBtn',false); return; }
+  me={ id:data.user.id, username };
+  afterAuth();
+}
+async function doLogin(){
+  const username=val('username'), password=val('password'); setErr('');
+  if(!username||!password){ setErr('Enter your username and password.'); return; }
+  busy('authBtn',true);
+  const email=await emailForUsername(username);
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if(error){ setErr('Wrong username or password.'); busy('authBtn',false); return; }
+  await loadMe(data.user);
+  afterAuth();
+}
+async function doLogout(){ await sb.auth.signOut(); me=null; location.hash=''; route(); }
+function afterAuth(){ topRight(); if(pendingAction==='create'){ pendingAction=null; cLevel(); return; } route(); }
+
+function screenUsername(){
+  topRight();
+  screen.innerHTML=`
+    <div class="mt2"><h2>Pick a username</h2><p class="sub mt" style="margin-bottom:16px">This is how friends see you.</p>
+      <input class="field" id="username" maxlength="24" placeholder="Username" autocomplete="off"></div>
+    <div class="err" id="autherr"></div>
+    <div class="footer-btn"><button class="btn" id="uBtn">Save</button></div>`;
+  document.getElementById('uBtn').onclick=async()=>{
+    const u=val('username'); setErr(''); if(!u){ setErr('Enter a username.'); return; }
+    busy('uBtn',true);
+    const { data:ex } = await sb.from('profiles').select('id').eq('username',u).maybeSingle();
+    if(ex){ setErr('Taken — try another.'); busy('uBtn',false); return; }
+    const { error } = await sb.from('profiles').insert({ id:me.id, username:u });
+    if(error){ setErr(error.message); busy('uBtn',false); return; }
+    me={ id:me.id, username:u }; afterAuth();
+  };
+}
+
+// ===================== HOME =====================
+async function home(){
+  topRight(); challengeBackTo=null;
+  screen.innerHTML=`<div class="mt"><h2>Hi ${esc(me.username)} 👋</h2><p class="sub">Make a challenge and see who really knows you.</p></div>
+    <div class="mt2" style="font-weight:700;font-size:14px;color:var(--muted)">Your challenges</div>
+    <div id="mine" class="mt"><div class="spin"></div></div>
+    <div class="footer-btn"><button class="btn" onclick="cLevel()">+ Create a challenge</button></div>`;
+  const { data, error } = await sb.from('challenges').select('id,level,created_at').eq('creator_id',me.id).order('created_at',{ascending:false});
+  const box=document.getElementById('mine');
+  if(error){ box.innerHTML=`<p class="sub">Couldn't load: ${esc(error.message)}</p>`; return; }
+  if(!data.length){ box.innerHTML=`<p class="sub">None yet — create your first one below.</p>`; return; }
+  box.innerHTML = data.map(ch=>{
+    const lvl=lvlMeta(ch.level);
+    return `<div class="card-row"><span class="lvl-emoji">${lvl.emoji}</span>
+      <div class="meta"><div class="t">${ch.id}</div><div class="s">up to ${lvl.name}</div></div>
+      <button class="btn secondary mini" onclick="copyText(baseUrl()+'#c=${ch.id}')">Copy link</button>
+      <button class="btn mini" onclick="showLeaderboard('${ch.id}')">Board</button></div>`;
+  }).join('');
+}
+
+// ===================== CREATE =====================
+let C={ level:3, deck:[], answers:[], idx:0 };
+function cLevel(){
+  topRight(); C={ level:3, deck:[], answers:[], idx:0 };
+  screen.innerHTML=`<div class="mt"><h2>How deep do you dare?</h2>
+    <p class="sub" style="margin-bottom:6px">Pick the deepest level. Each game escalates up to there.</p>
+    <div class="levels" id="lv"></div></div>
+    <div class="footer-btn"><button class="btn" onclick="cStart()">Start answering →</button></div>`;
+  const lv=document.getElementById('lv');
+  LEVELS.forEach(l=>{ const d=document.createElement('div');
+    d.className='lvl-card'+(l.n<=C.level?' sel':'');
+    d.onclick=()=>{ C.level=l.n; [...lv.children].forEach((c,i)=>c.classList.toggle('sel', i+1<=C.level)); };
+    d.innerHTML=`<span class="lvl-emoji">${l.emoji}</span><div><div class="lvl-name">up to ${l.name}</div><div class="lvl-desc">${l.desc}</div></div>`;
+    lv.appendChild(d); });
+}
+function cStart(){ C.deck=buildDeck(C.level); C.answers=[]; C.idx=0; cRender(); }
+function cRender(){
+  const q=QBYID[C.deck[C.idx]], meta=lvlMeta(q.lvl);
+  $top.textContent=`About you · ${C.idx+1}/${C.deck.length}`;
+  const prog=C.deck.map((_,i)=>`<span class="${i<C.idx?'done':i===C.idx?'cur':''}"></span>`).join('');
+  screen.innerHTML=`<div class="prog">${prog}</div>
+    <div class="qhead"><span class="pill l${q.lvl}">${meta.emoji} ${meta.name}</span></div>
+    <div class="who">Your honest answer:</div><div class="qtext">${esc(q.label)}</div>
+    <div id="body">${inputHTML(q,'cAnswer')}</div>`;
+}
+function cAnswer(i){ C.answers[C.idx]=i; cAdvance(); }
+function cAnswerSlider(){ C.answers[C.idx]=+document.getElementById('sld').value; cAdvance(); }
+function cAdvance(){ if(C.idx<C.deck.length-1){ C.idx++; cRender(); } else cSave(); }
+
+async function cSave(){
+  $top.textContent='Saving…';
+  screen.innerHTML=`<div class="spin"></div>`;
+  let code, tries=0, saved=false, lastErr=null;
+  while(tries++<5 && !saved){
+    code=shortCode();
+    const { error } = await sb.from('challenges').insert({
+      id:code, creator_id:me.id, creator_name:me.username, level:C.level,
+      question_ids:C.deck, answers:C.answers });
+    if(!error){ saved=true; break; }
+    lastErr=error;
+    if(error.code!=='23505') break; // not a duplicate code -> real error
+  }
+  if(!saved){ screen.innerHTML=`<div class="mt2 center"><h2>Couldn't save 😕</h2><p class="sub mt">${esc(lastErr?lastErr.message:'Unknown error')}</p></div>
+    <div class="footer-btn"><button class="btn" onclick="cSave()">Try again</button><button class="btn ghost mt" onclick="home()">Home</button></div>`; return; }
+  cShare(code);
+}
+function cShare(code){
+  $top.textContent='Done 🎉';
+  const link=baseUrl()+'#c='+code;
+  const back=challengeBackTo; challengeBackTo=null;
+  const heading = back ? `Now challenge ${esc(back)} back! 🔥` : 'Your challenge is live!';
+  const sub = back ? `Send this straight to ${esc(back)} — let's see if they know you as well as you know them.`
+                   : 'Share it with as many friends as you want. Everyone guesses on their own phone — and lands on your leaderboard.';
+  const shareMsg = (back ? `I played your DeepQuiz — your turn now 👀 ` : `How well do you know me? Take my DeepQuiz 👀 `)+link;
+  const shareTitle = back ? `Your turn 👀` : 'How well do you know me? 👀';
+  screen.innerHTML=`<div class="center mt"><div class="big-emoji">${back?'🔥':'🎉'}</div><h2>${heading}</h2>
+    <p class="sub mt">${sub}</p></div>
+    <div class="mt" style="font-weight:700;font-size:14px;color:var(--muted)">Share link</div>
+    <div class="linkbox mt" style="margin-top:8px">${esc(link)}</div>
+    <div class="footer-btn stack">
+      <button class="btn" id="shareBtn">${back?`Send to ${esc(back)}`:'Share with friends'}</button>
+      <button class="btn secondary" onclick="copyText('${link}')">Copy link</button>
+      <button class="btn ghost" onclick="showLeaderboard('${code}')">View leaderboard</button></div>`;
+  document.getElementById('shareBtn').onclick=()=>{
+    if(navigator.share) navigator.share({title:'DeepQuiz',text:shareTitle,url:link}).catch(()=>{}); else copyText(shareMsg); };
+}
+
+// ===================== PLAY (open a challenge) =====================
+let G=null, GS={};
+async function openChallenge(code){
+  topRight();
+  screen.innerHTML=`<div class="spin"></div>`;
+  const { data, error } = await sb.from('challenges').select('*').eq('id',code).maybeSingle();
+  if(error || !data){
+    screen.innerHTML=`<div class="mt2 center"><div class="big-emoji">🔍</div><h2>Challenge not found</h2>
+      <p class="sub mt">This link may be broken or removed.</p></div>
+      <div class="footer-btn"><button class="btn" onclick="resetHome()">${me?'Home':'Go to DeepQuiz'}</button></div>`;
+    return;
+  }
+  G=data; playIntro();
+}
+function playIntro(){
+  const loggedIn=!!(me&&me.username);
+  screen.innerHTML=`<div class="mt2 center"><div class="big-emoji">👀</div>
+      <h2><span style="color:var(--accent)">${esc(G.creator_name)}</span> challenged you</h2>
+      <p class="sub mt">How well do you actually know ${esc(G.creator_name)}? Guess their answers — no pressure 😏</p></div>
+    ${loggedIn? `<p class="hint mt2">Playing as <b style="color:var(--text)">${esc(me.username)}</b></p>`
+      : `<div class="mt2" style="font-weight:700;font-size:14px;color:var(--muted)">Your name</div>
+         <input class="field" style="margin-top:8px" id="gn" maxlength="24" placeholder="e.g. Sam" autocomplete="off">
+         <p class="hint">Want to keep your scores & challenge back? <a style="color:var(--accent);cursor:pointer" onclick="goAuthKeepHash()">Create an account</a></p>`}
+    <div class="footer-btn"><button class="btn" onclick="playBegin()">Start guessing →</button></div>`;
+  if(!loggedIn) setTimeout(()=>{ const e=document.getElementById('gn'); if(e) e.focus(); },50);
+}
+function goAuthKeepHash(){ authScreen(); } // hash stays; after login route() returns to challenge
+function playBegin(){
+  let name = (me&&me.username) ? me.username : val('gn');
+  if(!name){ toast('Add your name first 🙂'); return; }
+  GS={ idx:0, score:0, log:[], name };
+  pRender();
+}
+function pRender(){
+  const q=QBYID[G.question_ids[GS.idx]], meta=lvlMeta(q.lvl);
+  $top.textContent=`Guessing · ${GS.idx+1}/${G.question_ids.length}`;
+  const prog=G.question_ids.map((_,i)=>`<span class="${i<GS.idx?'done':i===GS.idx?'cur':''}"></span>`).join('');
+  screen.innerHTML=`<div class="prog">${prog}</div>
+    <div class="qhead"><span class="pill l${q.lvl}">${meta.emoji} ${meta.name}</span></div>
+    <div class="who">What did <b>${esc(G.creator_name)}</b> answer?</div>
+    <div class="qtext">${esc(q.label)}</div>
+    <div id="body">${inputHTML(q,'pGuess')}</div><div id="reveal-slot"></div>`;
+}
+function pGuess(i){
+  const q=QBYID[G.question_ids[GS.idx]], actual=G.answers[GS.idx];
+  document.querySelectorAll('.opt').forEach(o=>o.style.pointerEvents='none');
+  document.querySelectorAll('.opt').forEach(o=>{ const oi=+o.dataset.i;
+    if(oi===actual){o.classList.add('correct'); o.innerHTML+=`<span class="tag">✓ ${esc(G.creator_name)}</span>`;}
+    else if(oi===i){o.classList.add('wrong'); o.innerHTML+=`<span class="tag">✗ you</span>`;} });
+  pReveal(i===actual?'correct':'wrong', answerText(q,i), answerText(q,actual), i===actual?1:0, '');
+}
+function pGuessSlider(){
+  const q=QBYID[G.question_ids[GS.idx]], v=+document.getElementById('sld').value, actual=G.answers[GS.idx];
+  const diff=Math.abs(v-actual), verdict=diff<=15?'correct':diff<=30?'close':'wrong', pts=diff<=15?1:diff<=30?0.5:0;
+  document.getElementById('sld').disabled=true;
+  document.getElementById('body').insertAdjacentHTML('beforeend',
+    `<div class="marker"><div class="dot you" style="left:${v}%">You</div><div class="dot mia" style="left:${actual}%">${esc(G.creator_name)}</div></div>`);
+  pReveal(verdict, answerText(q,v), answerText(q,actual), pts, `off by ${diff} of 100`);
+}
+function pReveal(verdict, yourTxt, actualTxt, pts, gap){
+  GS.score+=pts; const q=QBYID[G.question_ids[GS.idx]]; GS.log.push({q,verdict});
+  const vClass=verdict==='correct'?'v-correct':verdict==='close'?'v-close':'v-wrong';
+  const vText=verdict==='correct'?'Nailed it! 🎯':verdict==='close'?'So close 👀':'Missed 🙈';
+  const last=GS.idx===G.question_ids.length-1;
+  const gapHtml=gap?`<span style="color:var(--muted);font-weight:600"> · ${gap}</span>`:'';
+  document.getElementById('reveal-slot').innerHTML=`
+    <div class="reveal"><div class="verdict ${vClass}">${vText}${gapHtml}</div>
+      <div class="answer"><span class="you">You:</span> <b>${esc(yourTxt)}</b> &nbsp;·&nbsp; <span class="mia">${esc(G.creator_name)}:</span> <b>${esc(actualTxt)}</b></div></div>
+    <div class="footer-btn"><button class="btn" onclick="pNext()">${last?'See my score →':'Next →'}</button></div>`;
+  screen.scrollTo({top:screen.scrollHeight, behavior:'smooth'});
+}
+function pNext(){ if(GS.idx<G.question_ids.length-1){ GS.idx++; pRender(); } else pFinish(); }
+
+async function pFinish(){
+  const total=G.question_ids.length, pct=Math.round(GS.score/total*100);
+  $top.textContent='Saving…'; screen.innerHTML=`<div class="spin"></div>`;
+  await sb.from('plays').insert({ challenge_id:G.id, guesser_id:(me&&me.username)?me.id:null, guesser_name:GS.name, score:GS.score, total });
+  pResult(pct,total);
+}
+function pResult(pct,total){
+  $top.textContent='Result';
+  const v=pct>=85?'You really get them 💫':pct>=60?'You know them well 💛':pct>=35?'Room to grow 🌱':'Strangers… for now 👀';
+  const circ=2*Math.PI*72, off=circ*(1-pct/100);
+  const recap=GS.log.map(a=>{const ic=a.verdict==='correct'?'🟢':a.verdict==='close'?'🟡':'🔴';
+    return `<div class="recap-row"><span class="ic">${ic}</span><span class="qq">${esc(a.q.label)}</span></div>`;}).join('');
+  screen.innerHTML=`<div class="center mt"><h2>How well you know ${esc(G.creator_name)}</h2></div>
+    <div class="score-ring"><svg width="180" height="180">
+      <circle cx="90" cy="90" r="72" stroke="rgba(255,255,255,.1)" stroke-width="13" fill="none"/>
+      <circle cx="90" cy="90" r="72" stroke="url(#g)" stroke-width="13" fill="none" stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${circ}" transform="rotate(-90 90 90)" id="ringArc"/>
+      <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6b9d"/><stop offset="1" stop-color="#ffd166"/></linearGradient></defs></svg>
+      <div class="score-num"><div class="big">${pct}%</div><div class="small">${GS.score} / ${total} right</div></div></div>
+    <div class="verdict-line">${v}</div>
+    <div class="recap">${recap}</div>
+    <div class="footer-btn stack">
+      <button class="btn" onclick="startChallengeBack()">Challenge ${esc(G.creator_name)} back →</button>
+      <button class="btn secondary" onclick="showLeaderboard('${G.id}')">See leaderboard</button>
+      <button class="btn ghost" onclick="resetHome()">${me&&me.username?'Home':'Just make my own'}</button></div>`;
+  requestAnimationFrame(()=>{ const a=document.getElementById('ringArc'); if(a){ a.style.transition='stroke-dashoffset 1s ease'; a.style.strokeDashoffset=off; }});
+}
+function startChallengeBack(){
+  challengeBackTo = G ? G.creator_name : null;
+  history.replaceState(null,'',location.pathname);   // drop #c= so reloads don't reopen the played challenge
+  if(me && me.username){ cLevel(); }
+  else { pendingAction='create'; authMode='signup'; authScreen(); }
+}
+
+// ===================== LEADERBOARD (from DB) =====================
+async function showLeaderboard(code){
+  topRight(); $top.textContent='Leaderboard'; screen.innerHTML=`<div class="spin"></div>`;
+  const { data:ch } = await sb.from('challenges').select('creator_name,creator_id').eq('id',code).maybeSingle();
+  const { data, error } = await sb.from('plays').select('guesser_name,score,total').eq('challenge_id',code).order('score',{ascending:false});
+  if(error){ screen.innerHTML=`<p class="sub">Couldn't load: ${esc(error.message)}</p>`; return; }
+  // keep best score per name
+  const best={}; (data||[]).forEach(p=>{ const pct=Math.round(p.score/p.total*100); if(!(p.guesser_name in best)||pct>best[p.guesser_name]) best[p.guesser_name]=pct; });
+  const rows=Object.entries(best).sort((a,b)=>b[1]-a[1]);
+  const who = ch? ch.creator_name : 'this challenge';
+  const isMine = me && ch && ch.creator_id===me.id;
+  const body = rows.length ? rows.slice(0,20).map(([n,p],i)=>`<div class="lb-row ${i===0?'top':''}">
+      <span class="lb-rank">${i===0?'👑':'#'+(i+1)}</span><span class="lb-name">${esc(n)}</span><span class="lb-pct">${p}%</span></div>`).join('')
+    : `<p class="sub">No one has played yet. Share the link!</p>`;
+  screen.innerHTML=`<div class="center mt"><h2>Who knows ${esc(who)} best</h2></div>
+    <div class="lb mt">${body}</div>
+    <div class="footer-btn stack">
+      ${isMine?`<button class="btn" onclick="copyText(baseUrl()+'#c=${code}')">Copy challenge link</button>`:''}
+      <button class="btn ${isMine?'secondary':''}" onclick="resetHome()">${me?'Home':'Create my own challenge →'}</button></div>`;
+}
+
+// ===================== shared input renderer =====================
+function inputHTML(q, handler){
+  if(q.fmt==='binary') return `<div class="binary">${q.options.map((o,i)=>`<button class="opt" data-i="${i}" onclick="${handler}(${i})">${esc(o)}</button>`).join('')}</div>`;
+  if(q.fmt==='mc') return `<div class="options">${q.options.map((o,i)=>`<button class="opt" data-i="${i}" onclick="${handler}(${i})">${esc(o)}</button>`).join('')}</div>`;
+  const sh = handler==='cAnswer' ? 'cAnswerSlider' : 'pGuessSlider';
+  return `<div class="slider-wrap"><div class="slider-labels"><span>${esc(q.poles[0])}</span><span>${esc(q.poles[1])}</span></div>
+    <input type="range" min="0" max="100" value="50" id="sld"></div>
+    <button class="btn mt" onclick="${sh}()">${handler==='cAnswer'?'Next →':'Lock in guess'}</button>`;
+}
+function resetHome(){ location.hash=''; route(); }
+
+init();
+</script>
+</body>
+</html>
