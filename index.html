@@ -181,6 +181,8 @@ function answerText(q,v){if(v==null)return '—';return q.fmt==='slider'?(v>=50?
 function scoreOne(q,guess,actual){if(guess==null||actual==null)return 0;if(q.fmt==='slider'){const d=Math.abs(guess-actual);return d<=15?1:d<=30?0.5:0;}return guess===actual?1:0;}
 function shuffle(a){for(let k=a.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[a[k],a[j]]=[a[j],a[k]];}return a;}
 function baseUrl(){return location.origin+location.pathname;}
+function enc(o){return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function dec(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';return JSON.parse(decodeURIComponent(escape(atob(s))));}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2200);}
 function copyText(t){if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(()=>toast('Copied ✓')).catch(()=>toast('Long-press to copy'));else toast('Long-press to copy');}
 function busy(id,on){const b=document.getElementById(id);if(b){b.disabled=on;if(on){b.dataset._t=b.textContent;b.textContent='…';}else if(b.dataset._t)b.textContent=b.dataset._t;}}
@@ -200,9 +202,10 @@ async function loadMe(user){
 }
 function route(){
   topRight();
-  const h=location.hash||'', m=h.match(/^#play=(.+)$/);
+  const h=location.hash||'';
   if(me&&me.needsProfile)return screenUsername();
-  if(m)return routePlay(decodeURIComponent(m[1]));
+  const cm=h.match(/^#c=(.+)$/);
+  if(cm){let ch=null;try{ch=dec(cm[1]);}catch(e){}if(ch&&ch.q&&ch.a)return routeChallenge(ch);}
   if(me&&me.username)return home();
   authScreen();
 }
@@ -306,10 +309,7 @@ async function challengeScreen(){
   const oppHtml=recentOpps.length?recentOpps.map((o,i)=>`<div class="duel-row" onclick="challengeOpponent(${i})"><div class="av">${esc(initial(o.name))}</div>
     <div class="meta"><div class="t">${esc(o.name)}</div><div class="s">${o.w}–${o.l} all-time</div></div><span class="badge turn">Duel ⚔️</span></div>`).join('')
     :'<p class="sub">No opponents yet — find someone by username below.</p>';
-  const ready = me.answered && me.answered.size>=3;
-  const linkSection = ready
-    ? `<div class="linkbox">${esc(link)}</div><button class="btn secondary mt" id="shareBtn">Share my link</button>`
-    : `<p class="sub" style="margin-bottom:10px">Answer 3 quick questions about yourself (one round) — then your link is ready and friends can guess your answers to duel you.</p><button class="btn secondary" onclick="setupLink()">Set up my challenge link →</button>`;
+  const linkSection = `<p class="sub" style="margin-bottom:10px">Answer 3 questions about yourself. Friends open your link, answer the same 3 and guess yours — that's round 1 of your duel.</p><button class="btn secondary" onclick="setupLink()">Answer 3 &amp; get my link →</button>`;
   screen.innerHTML=`<div class="mt"><h2>Challenge a friend</h2></div>
     <div class="section-t">Recent opponents — tap to duel</div><div>${oppHtml}</div>
     <div class="section-t">Find someone by username</div>
@@ -336,15 +336,15 @@ async function searchUsers(term){
 async function challengeByProfile(i){const u=USEARCH[i];if(!u)return;spin();
   const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${u.id}),and(a.eq.${u.id},b.eq.${me.id})`).eq('status','active').maybeSingle();
   if(ex)return openDuel(ex.id);await createDuelWith(u);}
-function setupLink(){const ids=shuffle(Q.filter(q=>q.lvl<=3&&!(me.answered&&me.answered.has(q.id))).map(q=>q.id)).slice(0,ROUND_Q);SU={ids,idx:0};suRender();}
+function setupLink(){const ids=shuffle(Q.filter(q=>q.lvl<=3).map(q=>q.id)).slice(0,ROUND_Q);SU={ids,idx:0,answers:[]};suRender();}
 function suRender(){const q=QBYID[SU.ids[SU.idx]],meta=lvlMeta(q.lvl);$top.textContent=`Your challenge · ${SU.idx+1}/${SU.ids.length}`;
   const prog=SU.ids.map((_,i)=>`<span class="${i<SU.idx?'done':i===SU.idx?'cur':''}"></span>`).join('');
   screen.innerHTML=`<div class="prog">${prog}</div><div class="qhead"><span class="pill l${q.lvl}">${meta.emoji} ${meta.name}</span></div>
     <div class="who">Your honest answer — friends will try to guess this:</div><div class="qtext">${esc(q.label)}</div>
     <div id="body">${inputHTML(q,'su')}</div>`;}
-async function suAnswer(v){const qid=SU.ids[SU.idx];await sb.from('self_answers').upsert({user_id:me.id,question_id:qid,answer:v});if(me.answered)me.answered.add(qid);
+async function suAnswer(v){SU.answers[SU.idx]=v;const qid=SU.ids[SU.idx];await sb.from('self_answers').upsert({user_id:me.id,question_id:qid,answer:v});if(me.answered)me.answered.add(qid);
   if(SU.idx<SU.ids.length-1){SU.idx++;suRender();}else linkReady();}
-function linkReady(){const link=baseUrl()+'#play='+encodeURIComponent(me.username);$top.textContent='Link ready';
+function linkReady(){const link=baseUrl()+'#c='+enc({id:me.id,n:me.username,q:SU.ids,a:SU.answers});$top.textContent='Link ready';
   screen.innerHTML=`<div class="mt2 center"><div class="big-emoji">🔗</div><h2>Your challenge link is ready!</h2>
     <p class="sub mt">Send it to anyone — they guess your answers, get a score, then sign up to duel you for real.</p></div>
     <div class="linkbox mt">${esc(link)}</div>
@@ -372,36 +372,30 @@ async function createDuelWith(opp){
   await sb.from('rounds').insert({duel_id:duel.id,round_no:1,question_ids:picked});
   openDuel(duel.id);
 }
-async function routePlay(username){
-  spin();
-  const {data:opp}=await sb.from('profiles').select('id,username').ilike('username',username).maybeSingle();
-  if(!opp){toast('User not found');return me?goHome():authScreen();}
+async function routeChallenge(ch){
   if(me&&me.username){
-    if(opp.id===me.id)return goHome();
-    const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${opp.id}),and(a.eq.${opp.id},b.eq.${me.id})`).eq('status','active').maybeSingle();
-    if(ex)return openDuel(ex.id);return createDuelWith(opp);
+    if(ch.id===me.id){toast("That's your own link 🙂");return goHome();}
+    spin();
+    const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${ch.id}),and(a.eq.${ch.id},b.eq.${me.id})`).eq('status','active').maybeSingle();
+    if(ex)return openDuel(ex.id);
   }
-  guestPlay(opp);
+  guestPlay(ch);
 }
 
 // ---------- GUEST ROUND 1 (play via link, no account yet) ----------
-async function guestPlay(opp){
-  const {data:ans}=await sb.from('self_answers').select('question_id,answer').eq('user_id',opp.id);
-  const bank=(ans||[]).filter(a=>QBYID[a.question_id]);
-  if(bank.length<ROUND_Q){pendingPlayUser=opp.username;authMode='signup';return authScreen();}
-  shuffle(bank);const pick=bank.slice(0,ROUND_Q).sort((x,y)=>QBYID[x.question_id].lvl-QBYID[y.question_id].lvl);
-  GP={opp,qids:pick.map(p=>p.question_id),creatorSelf:pick.map(p=>p.answer),selfA:[],guesses:[],idx:0,phase:'self'};
+function guestPlay(ch){
+  GP={ch,idx:0,phase:'self',selfA:[],guesses:[]};
   topRight();
-  screen.innerHTML=`<div class="mt2 center"><div class="big-emoji">👀</div><h2><span style="color:var(--accent)">${esc(opp.username)}</span> challenged you</h2>
-    <p class="sub mt">Round 1: answer 3 questions about yourself, and guess how ${esc(opp.username)} answered. No account needed to play this round.</p></div>
+  screen.innerHTML=`<div class="mt2 center"><div class="big-emoji">👀</div><h2><span style="color:var(--accent)">${esc(ch.n)}</span> challenged you</h2>
+    <p class="sub mt">Round 1: answer 3 questions about yourself, and guess how ${esc(ch.n)} answered them. No account needed to play this round.</p></div>
     <div class="footer-btn"><button class="btn" onclick="gpRender()">Play round 1 →</button></div>`;
 }
 function gpRender(){
-  const qid=GP.qids[GP.idx],q=QBYID[qid],meta=lvlMeta(q.lvl),self=GP.phase==='self';
+  const qid=GP.ch.q[GP.idx],q=QBYID[qid],meta=lvlMeta(q.lvl),self=GP.phase==='self';
   $top.textContent=`Round 1 · ${GP.idx+1}/${ROUND_Q}`;
-  const steps=`<div class="steps"><span class="step s1 ${self?'active':''}"><span class="num">1</span> you</span><span class="step-arrow">→</span><span class="step s2 ${self?'':'active'}"><span class="num">2</span> guess ${esc(GP.opp.username)}</span></div>`;
-  const chip=self?'':`<div class="yourchip">🫵 You said: <b>${esc(answerText(q,GP.selfA[GP.idx]))}</b> — and ${esc(GP.opp.username)}?</div>`;
-  const who=self?'Your honest answer:':`What did <b>${esc(GP.opp.username)}</b> answer?`;
+  const steps=`<div class="steps"><span class="step s1 ${self?'active':''}"><span class="num">1</span> you</span><span class="step-arrow">→</span><span class="step s2 ${self?'':'active'}"><span class="num">2</span> guess ${esc(GP.ch.n)}</span></div>`;
+  const chip=self?'':`<div class="yourchip">🫵 You said: <b>${esc(answerText(q,GP.selfA[GP.idx]))}</b> — and ${esc(GP.ch.n)}?</div>`;
+  const who=self?'Your honest answer:':`What did <b>${esc(GP.ch.n)}</b> answer?`;
   screen.innerHTML=`${steps}<div class="qhead"><span class="pill l${q.lvl}">${meta.emoji} ${meta.name}</span></div>
     ${chip}<div class="who">${who}</div><div class="qtext">${esc(q.label)}</div>
     <div id="body">${inputHTML(q,self?'gpself':'gpguess')}</div>`;
@@ -409,15 +403,16 @@ function gpRender(){
 function gpSelf(v){GP.selfA[GP.idx]=v;GP.phase='guess';gpRender();}
 function gpGuess(v){GP.guesses[GP.idx]=v;if(GP.idx<ROUND_Q-1){GP.idx++;GP.phase='self';gpRender();}else gpResult();}
 function gpResult(){
-  let c=0;GP.qids.forEach((qid,i)=>{c+=scoreOne(QBYID[qid],GP.guesses[i],GP.creatorSelf[i]);});
-  const ov=GP.qids.map((qid,i)=>{const q=QBYID[qid],s=scoreOne(q,GP.guesses[i],GP.creatorSelf[i]),ic=s>=1?'🟢':s>0?'🟡':'🔴';
-    return `<div class="ovrow"><div class="q">${esc(q.label)}</div><div class="line"><span>${ic} You guessed <b>${esc(answerText(q,GP.guesses[i]))}</b></span><span>${esc(GP.opp.username)}: <b>${esc(answerText(q,GP.creatorSelf[i]))}</b></span></div></div>`;}).join('');
-  pendingChallenge={creatorId:GP.opp.id,creatorName:GP.opp.username,qids:GP.qids.slice(),creatorSelf:GP.creatorSelf.slice(),guestSelf:GP.selfA.slice(),guestGuesses:GP.guesses.slice()};
-  pendingPlayUser=GP.opp.username;authMode='signup';$top.textContent='Round 1';
-  screen.innerHTML=`<div class="center mt"><div class="big-emoji">${c>=2?'🎉':'👀'}</div><h2>You know ${esc(GP.opp.username)} ${c}/${ROUND_Q}</h2>
-    <p class="sub">That's round 1. Create an account to take your turn and play the match out (first to ${WIN_TARGET}).</p></div>
+  const ch=GP.ch;let c=0;ch.q.forEach((qid,i)=>{c+=scoreOne(QBYID[qid],GP.guesses[i],ch.a[i]);});
+  const ov=ch.q.map((qid,i)=>{const q=QBYID[qid],s=scoreOne(q,GP.guesses[i],ch.a[i]),ic=s>=1?'🟢':s>0?'🟡':'🔴';
+    return `<div class="ovrow"><div class="q">${esc(q.label)}</div><div class="line"><span>${ic} You guessed <b>${esc(answerText(q,GP.guesses[i]))}</b></span><span>${esc(ch.n)}: <b>${esc(answerText(q,ch.a[i]))}</b></span></div></div>`;}).join('');
+  pendingChallenge={creatorId:ch.id,creatorName:ch.n,qids:ch.q.slice(),creatorSelf:ch.a.slice(),guestSelf:GP.selfA.slice(),guestGuesses:GP.guesses.slice()};
+  const loggedIn=me&&me.username;if(!loggedIn){pendingPlayUser=ch.n;authMode='signup';}
+  $top.textContent='Round 1';
+  screen.innerHTML=`<div class="center mt"><div class="big-emoji">${c>=2?'🎉':'👀'}</div><h2>You know ${esc(ch.n)} ${c}/${ROUND_Q}</h2>
+    <p class="sub">That's round 1.${loggedIn?' Take your turn and play it out':' Create an account to play it out'} (first to ${WIN_TARGET}).</p></div>
     <div class="section-t">Your guesses</div>${ov}
-    <div class="footer-btn"><button class="btn" onclick="authScreen()">Create account & continue →</button></div>`;
+    <div class="footer-btn"><button class="btn" onclick="${loggedIn?'finalizeChallenge()':'authScreen()'}">${loggedIn?'Start the match →':'Create account & continue →'}</button></div>`;
 }
 async function finalizeChallenge(){
   const pc=pendingChallenge;pendingChallenge=null;pendingPlayUser=null;spin();
