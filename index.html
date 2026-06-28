@@ -304,18 +304,50 @@ async function challengeScreen(){
   const oppHtml=recentOpps.length?recentOpps.map((o,i)=>`<div class="duel-row" onclick="challengeOpponent(${i})"><div class="av">${esc(initial(o.name))}</div>
     <div class="meta"><div class="t">${esc(o.name)}</div><div class="s">${o.w}–${o.l} all-time</div></div><span class="badge turn">Duel ⚔️</span></div>`).join('')
     :'<p class="sub">No opponents yet — find someone by username below.</p>';
+  const ready = me.answered && me.answered.size>=3;
+  const linkSection = ready
+    ? `<div class="linkbox">${esc(link)}</div><button class="btn secondary mt" id="shareBtn">Share my link</button>`
+    : `<p class="sub" style="margin-bottom:10px">Answer 3 quick questions about yourself (one round) — then your link is ready and friends can guess your answers to duel you.</p><button class="btn secondary" onclick="setupLink()">Set up my challenge link →</button>`;
   screen.innerHTML=`<div class="mt"><h2>Challenge a friend</h2></div>
     <div class="section-t">Recent opponents — tap to duel</div><div>${oppHtml}</div>
     <div class="section-t">Find someone by username</div>
-    <input class="field" id="oppname" placeholder="Their username" autocomplete="off"><div class="err" id="cerr"></div>
-    <button class="btn mt" id="chBtn" onclick="doChallenge()">Start duel →</button>
-    <div class="section-t">Invite someone not on DeepQuiz yet (optional)</div>
-    <div class="linkbox">${esc(link)}</div>
-    <div class="stack mt"><button class="btn secondary" id="shareBtn">Share my link</button>
-      <button class="btn ghost" onclick="goHome()">← Back</button></div>`;
-  document.getElementById('shareBtn').onclick=()=>{const msg='Think you know me? Duel me on DeepQuiz 👀 '+link;
-    if(navigator.share)navigator.share({title:'DeepQuiz',text:'Think you know me? 👀',url:link}).catch(()=>{});else copyText(msg);};
+    <input class="field" id="usearch" placeholder="Type a username…" oninput="searchUsers(this.value)" autocomplete="off">
+    <div id="uresults" class="mt"></div>
+    <div class="section-t">Invite someone new (your link)</div>
+    ${linkSection}
+    <div class="footer-btn"><button class="btn ghost" onclick="goHome()">← Back</button></div>`;
+  const sbx=document.getElementById('shareBtn'); if(sbx) sbx.onclick=()=>shareLink(link);
 }
+function shareLink(link){const msg='Think you know me? Duel me on DeepQuiz 👀 '+link;if(navigator.share)navigator.share({title:'DeepQuiz',text:'Think you know me? 👀',url:link}).catch(()=>{});else copyText(msg);}
+let USEARCH=[],_searchT=null,SU=null;
+async function searchUsers(term){
+  term=(term||'').trim();const box=document.getElementById('uresults');if(!box)return;
+  if(term.length<2){box.innerHTML='';return;}
+  clearTimeout(_searchT);
+  _searchT=setTimeout(async()=>{
+    const {data}=await sb.from('profiles').select('id,username').ilike('username','%'+term+'%').neq('id',me.id).limit(8);
+    USEARCH=data||[];
+    const box2=document.getElementById('uresults'); if(!box2)return;
+    box2.innerHTML=USEARCH.length?USEARCH.map((u,i)=>`<div class="duel-row" onclick="challengeByProfile(${i})"><div class="av">${esc(initial(u.username))}</div><div class="meta"><div class="t">${esc(u.username)}</div></div><span class="badge turn">Duel ⚔️</span></div>`).join(''):'<p class="sub">No one found with that name.</p>';
+  },250);
+}
+async function challengeByProfile(i){const u=USEARCH[i];if(!u)return;spin();
+  const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${u.id}),and(a.eq.${u.id},b.eq.${me.id})`).eq('status','active').maybeSingle();
+  if(ex)return openDuel(ex.id);await createDuelWith(u);}
+function setupLink(){const ids=shuffle(Q.filter(q=>q.lvl<=3&&!(me.answered&&me.answered.has(q.id))).map(q=>q.id)).slice(0,ROUND_Q);SU={ids,idx:0};suRender();}
+function suRender(){const q=QBYID[SU.ids[SU.idx]],meta=lvlMeta(q.lvl);$top.textContent=`Your challenge · ${SU.idx+1}/${SU.ids.length}`;
+  const prog=SU.ids.map((_,i)=>`<span class="${i<SU.idx?'done':i===SU.idx?'cur':''}"></span>`).join('');
+  screen.innerHTML=`<div class="prog">${prog}</div><div class="qhead"><span class="pill l${q.lvl}">${meta.emoji} ${meta.name}</span></div>
+    <div class="who">Your honest answer — friends will try to guess this:</div><div class="qtext">${esc(q.label)}</div>
+    <div id="body">${inputHTML(q,'su')}</div>`;}
+async function suAnswer(v){const qid=SU.ids[SU.idx];await sb.from('self_answers').upsert({user_id:me.id,question_id:qid,answer:v});if(me.answered)me.answered.add(qid);
+  if(SU.idx<SU.ids.length-1){SU.idx++;suRender();}else linkReady();}
+function linkReady(){const link=baseUrl()+'#play='+encodeURIComponent(me.username);$top.textContent='Link ready';
+  screen.innerHTML=`<div class="mt2 center"><div class="big-emoji">🔗</div><h2>Your challenge link is ready!</h2>
+    <p class="sub mt">Send it to anyone — they guess your answers, get a score, then sign up to duel you for real.</p></div>
+    <div class="linkbox mt">${esc(link)}</div>
+    <div class="footer-btn stack"><button class="btn" id="shareBtn2">Share link</button><button class="btn ghost" onclick="goHome()">Done</button></div>`;
+  document.getElementById('shareBtn2').onclick=()=>shareLink(link);}
 const cerr=m=>{const e=document.getElementById('cerr');if(e)e.textContent=m||'';};
 async function challengeOpponent(i){const o=recentOpps[i];if(!o)return;spin();
   const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${o.id}),and(a.eq.${o.id},b.eq.${me.id})`).eq('status','active').maybeSingle();
@@ -402,7 +434,7 @@ function matchScreen(cur){
   const resolved=RND.filter(r=>r.a_self!=null&&r.b_self!=null&&r.a_correct!=null);
   const rows=resolved.map(r=>{const myC=myRole==='a'?r.a_correct:r.b_correct,opC=myRole==='a'?r.b_correct:r.a_correct;
     const ic=r.winner===me.id?'🟢':r.winner?'🔴':'🤝';
-    return `<div class="duel-row" style="cursor:default"><div class="meta"><div class="t">Round ${r.round_no} ${ic}</div><div class="s">You ${myC} – ${opC} ${esc(oppName)}</div></div></div>`;}).join('');
+    return `<div class="duel-row" onclick="viewRound(${r.round_no})"><div class="meta"><div class="t">Round ${r.round_no} ${ic}</div><div class="s">You ${myC} – ${opC} ${esc(oppName)}</div></div><span class="badge wait">View ›</span></div>`;}).join('');
   const mySelf=myRole==='a'?cur.a_self:cur.b_self;
   let action;
   if(mySelf==null)action=`<button class="btn" onclick="dgStart()">Play round ${cur.round_no} →</button>`;
@@ -411,6 +443,13 @@ function matchScreen(cur){
     ${resolved.length?`<div class="section-t">Rounds so far</div>${rows}`:''}
     <div class="footer-btn stack">${action}</div>`;
 }
+function viewRound(n){const r=RND.find(x=>x.round_no===n);if(!r)return;
+  const myC=myRole==='a'?r.a_correct:r.b_correct,opC=myRole==='a'?r.b_correct:r.a_correct;
+  const iWon=r.winner===me.id,tie=!r.winner;$top.textContent=`Round ${n}`;
+  screen.innerHTML=`<div class="center mt"><h2>Round ${n} — ${tie?'tied':iWon?'you won':esc(oppName)+' won'}</h2>
+    <p class="sub">You ${myC} · ${esc(oppName)} ${opC}</p></div>
+    <div class="section-t">Answers</div>${roundRevealHtml(r)}
+    <div class="footer-btn"><button class="btn ghost" onclick="openDuel('${D.id}')">← Back to duel</button></div>`;}
 function dgStart(){DG={round:playRound,idx:0,phase:'self',selfA:[],guesses:[]};dgRender();}
 function dgRender(){
   const r=DG.round,q=QBYID[r.question_ids[DG.idx]],meta=lvlMeta(q.lvl),self=DG.phase==='self';
@@ -526,8 +565,8 @@ function inputHTML(q,h){
     <input type="range" min="0" max="100" value="50" id="sld"></div>
     <button class="btn mt" onclick="onSlider('${h}')">Continue →</button>`;
 }
-function onPick(h,i){if(h==='gt')gtAnswer(i);else if(h==='dgself')dgSelf(i);else if(h==='dgguess')dgGuess(i);}
-function onSlider(h){const v=+document.getElementById('sld').value;if(h==='gt')gtAnswer(v);else if(h==='dgself')dgSelf(v);else if(h==='dgguess')dgGuess(v);}
+function onPick(h,i){if(h==='gt')gtAnswer(i);else if(h==='dgself')dgSelf(i);else if(h==='dgguess')dgGuess(i);else if(h==='su')suAnswer(i);}
+function onSlider(h){const v=+document.getElementById('sld').value;if(h==='gt')gtAnswer(v);else if(h==='dgself')dgSelf(v);else if(h==='dgguess')dgGuess(v);else if(h==='su')suAnswer(v);}
 
 init();
 </script>
