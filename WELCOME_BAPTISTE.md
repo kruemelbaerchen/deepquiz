@@ -1,80 +1,91 @@
 # 👋 Welcome to DeepQuiz, Baptiste!
 
-David's building a social quiz game and you're jumping in — awesome. This doc gets you from zero to running the app locally and making your first change. Read it once, top to bottom (~5 min).
+David's building a social duel game and you're jumping in — nice. This gets you from zero to running it locally and making your first change. Read it once, top to bottom (~6 min). It's up to date as of the current build.
 
-> **Live app:** https://kruemelbaerchen.github.io/deepquiz/
+> **Live:** https://kruemelbaerchen.github.io/deepquiz/
 
 ---
 
 ## What DeepQuiz is
 
-A 1-on-1 **duel** game about how well friends know each other (think Quizduell meets "36 questions"). You answer questions about yourself; friends try to guess your answers. You duel them: **first to 3 round-wins** takes the match. There are leaderboards, head-to-head records, the works.
+A 1-on-1 **duel** game about how well friends know each other (Quizduell meets "36 questions"). In a duel, each round you **answer questions about yourself AND guess how your opponent answered**. Whoever guesses better wins the round. **First to 3 round-wins** takes the match. There are leaderboards and head-to-head records.
 
 ## The whole thing in one breath (architecture)
 
-- **Frontend:** a *single file*, `prototype/index.html` — plain HTML + CSS + vanilla JS, **no build step, no framework**. This is the entire app. It's hosted on **GitHub Pages**.
-- **Backend:** **Supabase** (hosted Postgres + Auth), reached from the browser via `@supabase/supabase-js` (loaded from a CDN — see the `<script>` in the `<head>`).
-- **Auth:** *username-first*. People pick a username + password; under the hood we derive a hidden synthetic email (`u<hash>@deepquizplayers.com`) so there's **no email step** and no email-rate-limit pain.
-- **No secrets in the repo.** The Supabase `anon` key in `index.html` is **public by design** (Row Level Security protects the data). The `service_role` key must **never** be committed or shared.
+- **Frontend:** a *single file* — `prototype/index.html`. Plain HTML + CSS + vanilla JS, **no framework, no build step**. This is the entire app. Hosted on **GitHub Pages**.
+- **Backend:** **Supabase** (hosted Postgres + Auth), reached from the browser via `@supabase/supabase-js` (CDN `<script>` in the `<head>`).
+- **Auth:** *username + password*, no email. Under the hood we derive a hidden synthetic email (`u<hash>@deepquizplayers.com`) from the username, so there's no email step or rate limit.
+- **No secrets in the repo.** The Supabase **`anon` key** in `index.html` is public by design — Row Level Security (RLS) protects the data. The **`service_role`** key must NEVER be committed or shared.
 
-## Data model (4 tables, all in Supabase)
+## Data model (Supabase, 4 tables)
 
-| Table | What it holds |
+| Table | Holds |
 |---|---|
 | `profiles` | one row per user (`id`, `username`) |
-| `self_answers` | each user's "about me" answers — the bank friends guess |
-| `duels` | a match between two users (players, win counts, status, winner) |
-| `rounds` | each round of a duel: both players' guesses about each other, scores, round winner |
+| `self_answers` | a user's own answers (`user_id`, `question_id`, `answer`) — feeds the "who knows me best" leaderboard + link challenges |
+| `duels` | a match: `a`, `b` (players), `a_name`, `b_name`, `wins_a`, `wins_b`, `status`, `winner` |
+| `rounds` | a round: `question_ids[]`, `a_self`/`b_self` (each player's own answers), `a_guesses`/`b_guesses` (their guesses of the other), `a_correct`/`b_correct`, `winner` |
 
-The SQL that creates these lives in `backend/schema.sql` (base) and `backend/schema_v2_duels.sql` (duels). They're already applied to the live project.
+SQL lives in `backend/`: `schema.sql` (profiles) → `schema_v2_duels.sql` (duels, rounds, self_answers) → `schema_v3_inround_answers.sql` (adds `rounds.a_self`/`b_self`). All already applied to the live project. (`challenges`/`plays` tables are leftovers from an old version — unused, safe to drop.)
 
 ## Run it locally (30 seconds)
 
-No install needed. From the `prototype/` folder:
-
 ```bash
-python -m http.server 4599
-# then open http://localhost:4599
+cd prototype
+python -m http.server 4599   # then open http://localhost:4599
 ```
 
-Login works on `localhost` because it counts as a "secure context" (needed for the username→hash crypto). It talks to the **same live Supabase** as production, so be a little careful — use throwaway test accounts (e.g. `TestBaptiste1`) while developing.
+No build. Login works on `localhost` (it counts as a secure context, needed for the username→hash crypto). It talks to the **same live Supabase** as production, so **use throwaway test accounts** while developing (e.g. `TestBaptiste1`) and don't wipe data — real friends already play.
 
-## How the duel flow works (so the code makes sense)
+## How a duel actually flows (so the code makes sense)
 
-1. **Sign up → onboarding:** you answer 12 fixed questions about yourself (`ONBOARDING` array). Everyone answers the same 12, so any two players share questions to duel on.
-2. **Challenge:** pick a recent opponent (one tap), search a username, or send your optional invite link (`#play=<username>`). A guest can play a no-stakes *taster* before signing up.
-3. **A round** = 3 questions; both players guess each other. Each guess is **committed to the server the instant you make it, then the answer is revealed** — that's the anti-cheat (you can't see an answer and then restart to re-guess it).
-4. **Round winner** = more correct. **First to 3 round-wins** wins the duel. Then a full **both-directions reveal** + the head-to-head record.
+1. **Sign up → home.** No onboarding.
+2. **Challenge** a friend: tap a recent opponent, search a username, or **share a link**.
+3. **A round = 3 questions.** For each: you answer about *yourself*, then guess your opponent — interleaved ("verschränkt"). No reveal yet.
+4. The round **resolves when both players have played** → both see the per-question reveal (your guess vs their answer, both directions). First to 3 round-wins.
+5. Past rounds are **tappable** in the match view to re-see the details.
 
-## Where things are in `index.html`
+### The invite-link flow (the subtle part)
+- You tap **"Answer 3 & get my link"** → answer 3 questions → those 3 questions+answers get **encoded into the link itself** (`#c=<base64>`), via `enc()`/`dec()`. So a link can only exist if you deliberately answered — no phantom challenges.
+- A friend opens the link → plays round 1 (answers the same 3 about themselves + guesses you) → sees their score → if not logged in, they **register**; if logged in, they tap "Start the match".
+- That creates the real duel (`finalizeChallenge`). **The opener becomes player `a`** — important: RLS requires the row's creator to be `a` (`auth.uid() = a`), and the opener is the one inserting. The link creator is `b`, with their round-1 self-answers pre-filled; they "play round 1" by **only guessing** (their self is already in).
 
-It's one file but sectioned with `// =====` comment banners:
-`CONFIG` → `QUESTION POOL` (the `Q` array) → `helpers` → `AUTH` → `ONBOARDING` → `HOME` → `CHALLENGE / INVITE` → `GUEST TASTER` → `DUEL` → `LEADERBOARD` → shared input renderer. Search for those banners.
+## Code map (sections in `index.html`)
 
-**Adding/editing questions** = just edit the `Q = [...]` array near the top. Format: `binary`, `mc`, `slider`. Human-readable list: `prototype/Questions_EN.md`.
+One file, but sectioned with `// =====` banners:
+`CONFIG` → `QUESTION POOL` (the `Q` array, 56 questions) → `helpers` (`enc/dec`, `scoreOne`, `answerText`, …) → `AUTH` → `HOME` → `CHALLENGE / INVITE` (`challengeScreen`, `searchUsers`, `setupLink`, `linkReady`) → `GUEST` (`guestPlay`, `gpResult`, `finalizeChallenge`) → `DUEL` (`openDuel`, `matchScreen`, `dgStart`, `dgSubmit`, `computeResolve`, `roundResult`, `duelResult`) → `LEADERBOARD` → shared input renderer.
 
-## Contributing workflow (important!)
+**Editing questions** = just edit the `Q = [...]` array near the top. Format: `binary`, `mc`, `slider`. Human-readable list: `prototype/Questions_EN.md`.
 
-- `main` is **auto-deployed to the live site** on every push. **Never push broken code to `main`.**
-- Work on a **branch**, test locally, open a **Pull Request**, then merge.
-- Everything's in one big `index.html`, so **coordinate with David** to avoid merge conflicts (split work by area, or we split the file into `index.html`/`style.css`/`app.js` once two people are active).
+## Gotchas / things that will bite you if you don't know them
 
-## Good first tasks (pick one to get your feet wet)
+- **"Whose turn is it" is checked via GUESSES, not self-answers** (`a_guesses`/`b_guesses`). Round 1 of a link can have a player's `self` filled but `guesses` not — so self can't be the "done" signal.
+- **Wins are recomputed from the rounds** (`computeResolve` counts round winners), never `+1`. Keeps it correct even if a round resolves twice.
+- **Anti-cheat:** no result is shown mid-round; guesses lock when the round is submitted; restarting can't help. (A determined dev could still decode answers from the link/DB — honor-system for friends; real fix = server-side scoring later.)
+- **RLS is the only thing protecting data** (the anon key is public). If a write mysteriously fails, check the RLS policy in the relevant `backend/*.sql`.
 
-1. **Add questions** — the safest, most useful first PR. Add a few good ones to the `Q` array (and `Questions_EN.md`). More questions = less repetition = the #1 thing the app needs.
-2. **Small UI polish** — e.g. nicer empty states, a friendlier "waiting for opponent" screen.
-3. Once comfortable: help with **"your turn" notifications** (the next big feature — web push).
+## Contributing workflow
 
-## Known rough edges (so you don't think they're your bug)
+- `main` **auto-deploys to the live site** on every push. **Never push broken code to `main`.**
+- Work on a **branch**, test locally, open a **Pull Request**, merge when green.
+- It's one big `index.html`, so **coordinate with David** to avoid merge conflicts (split by area, or we split the file into `index.html`/`style.css`/`app.js` once two of us are active).
 
-- **No notifications yet** — you find out it's your turn by opening the app (the duel list shows "Your turn"). Push notifications are the planned next feature.
-- **Honor-system anti-cheat:** the restart-cheat is fully blocked, but a determined dev could read answers via the browser console (answers live in the client to score). The clean fix is server-side scoring (a Supabase Edge Function) — a later hardening.
-- **Optional concurrency hardening:** if you ever see duplicate rounds, add a DB constraint: `alter table public.rounds add constraint rounds_unique unique (duel_id, round_no);` (the code already tolerates the race; this makes it bulletproof).
-- No password reset yet (no email on file), and `plays`/`challenges` tables are leftovers from the old one-way version (unused, safe to drop).
+## Good first tasks
+
+1. **Add questions** — safest, most useful first PR. The #1 thing the app needs (avoids repetition). Add to the `Q` array + `Questions_EN.md`.
+2. **Small UX polish** — nicer empty states, the "waiting for opponent" screen, copy.
+3. Once comfortable: help with **"your turn" notifications** — the biggest missing feature (async duels need a nudge). Likely Web Push via a Supabase Edge Function; note iOS needs "Add to Home Screen" for web push to work.
 
 ## Getting access
 
-- **Frontend work needs nothing extra** — clone the repo, run locally, go.
-- **Supabase dashboard access** (to see the DB / run SQL): ask David to add you as a project member. Tip: spin up a separate `deepquiz-dev` Supabase project for experiments so you never touch live player data — just swap `SUPABASE_URL`/`SUPABASE_ANON_KEY` at the top of `index.html`.
+- **Frontend work needs nothing extra** — clone, run locally, go.
+- **Supabase dashboard** (to see the DB / run SQL): ask David to add you as a project member. Tip: spin up a separate `deepquiz-dev` Supabase project for experiments so you never touch live data — just swap `SUPABASE_URL`/`SUPABASE_ANON_KEY` at the top of `index.html`.
+
+## Known limitations (so you don't think they're your bug)
+
+- **No notifications yet** — you learn it's your turn by opening the app (home shows "Your turn").
+- **No password reset** (no email on file).
+- Honor-system anti-cheat (see gotchas).
+- Real users are live in the DB — don't run a blanket data wipe; there's a surgical `backend/cleanup_testdata.sql` that only removes test accounts.
 
 Welcome aboard — have fun with it. 🚀
