@@ -95,13 +95,22 @@
   .lb-row{display:flex; align-items:center; gap:12px; background:var(--card); border-radius:12px; padding:12px 14px; margin-bottom:8px;}
   .lb-row.top{border:1px solid var(--gold);}
   .lb-rank{font-weight:800; color:var(--muted); width:24px; text-align:center;} .lb-name{flex:1; font-weight:700;} .lb-pct{font-weight:800; color:var(--gold);}
+  .modebar{display:flex; align-items:center; gap:8px; font-weight:800; font-size:13px; padding:9px 13px; border-radius:12px; margin-bottom:14px; letter-spacing:.4px;}
+  .modebar.self{background:rgba(140,194,255,.14); color:var(--blue); border:1px solid rgba(140,194,255,.42);}
+  .modebar.guess{background:rgba(255,126,170,.14); color:var(--accent); border:1px solid rgba(255,126,170,.42);}
+  .fbig{font-size:52px; text-align:center; margin:8px 0 2px;}
+  .fbverdict{text-align:center; font-weight:800; font-size:22px; margin-bottom:16px;}
+  .fbverdict.ok{color:var(--green);} .fbverdict.part{color:var(--yellow);} .fbverdict.no{color:var(--red);}
+  .fbrow{display:flex; justify-content:space-between; align-items:center; gap:10px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:13px 15px; margin-bottom:10px; font-size:15px;}
+  .fbrow .lbl{color:var(--muted);} .fbrow b{color:var(--text); font-weight:700;}
+  .fbrow.them{border-color:rgba(76,227,164,.45); background:rgba(76,227,164,.07);}
   @media (max-width:430px){ body{padding:0;} .phone{width:100%; height:100vh; height:100dvh; max-height:none; border-radius:0; box-shadow:none;} }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div class="phone">
-  <div class="topbar"><span class="logo">◆ DeepQuiz</span><span class="right" id="topright"></span></div>
+  <div class="topbar"><span class="logo" onclick="goHome()" style="cursor:pointer" title="My duels">◆ DeepQuiz</span><span class="right" id="topright"></span></div>
   <div class="screen" id="screen"><div class="spin"></div></div>
   <div class="toast" id="toast"></div>
 </div>
@@ -177,7 +186,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const val=id=>{const e=document.getElementById(id);return e?e.value.trim():'';};
 const lvlMeta=n=>LEVELS[n-1];
 const spin=()=>{screen.innerHTML='<div class="spin"></div>';};
-function answerText(q,v){if(v==null)return '—';return q.fmt==='slider'?(v>=50?q.poles[1]:q.poles[0]):q.options[v];}
+function answerText(q,v){if(v==null)return '—';return q.fmt==='slider'?(v>=50?q.poles[1]:q.poles[0])+' ('+v+')':q.options[v];}
 function scoreOne(q,guess,actual){if(guess==null||actual==null)return 0;if(q.fmt==='slider'){const d=Math.abs(guess-actual);return d<=15?1:d<=30?0.5:0;}return guess===actual?1:0;}
 function shuffle(a){for(let k=a.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[a[k],a[j]]=[a[j],a[k]];}return a;}
 function baseUrl(){return location.origin+location.pathname;}
@@ -200,17 +209,18 @@ async function loadMe(user){
   const {data:ans}=await sb.from('self_answers').select('question_id').eq('user_id',user.id);
   me={id:data.id,username:data.username,answered:new Set((ans||[]).map(a=>a.question_id))};
 }
+function validChallenge(ch){return !!ch&&typeof ch.id==='string'&&typeof ch.n==='string'&&Array.isArray(ch.q)&&Array.isArray(ch.a)&&ch.q.length===ROUND_Q&&ch.a.length===ROUND_Q&&ch.q.every(id=>QBYID[id]);}
 function route(){
   topRight();
   const h=location.hash||'';
   if(me&&me.needsProfile)return screenUsername();
   const cm=h.match(/^#c=(.+)$/);
-  if(cm){let ch=null;try{ch=dec(cm[1]);}catch(e){}if(ch&&ch.q&&ch.a)return routeChallenge(ch);}
+  if(cm){let ch=null;try{ch=dec(cm[1]);}catch(e){}if(validChallenge(ch))return routeChallenge(ch);}
   if(me&&me.username)return home();
   authScreen();
 }
 window.addEventListener('hashchange',route);
-function goHome(){location.hash='';route();}
+function goHome(){pendingChallenge=null;pendingPlayUser=null;location.hash='';route();}
 
 // ---------- AUTH ----------
 function authScreen(){
@@ -256,9 +266,11 @@ async function doLogin(){
   const email=await emailForUsername(username);
   const {data,error}=await sb.auth.signInWithPassword({email,password});
   if(error){busy('authBtn',false);return setErr('Wrong username or password.');}
-  await loadMe(data.user);route();
+  await loadMe(data.user);
+  if(pendingChallenge)return finalizeChallenge();
+  route();
 }
-async function doLogout(){await sb.auth.signOut();me=null;location.hash='';route();}
+async function doLogout(){await sb.auth.signOut();me=null;pendingChallenge=null;pendingPlayUser=null;location.hash='';route();}
 function screenUsername(){
   screen.innerHTML=`<div class="mt2"><h2>Pick a username</h2><p class="sub mt" style="margin-bottom:16px">This is how friends see you.</p>
     <input class="field" id="username" maxlength="24" placeholder="Username" autocomplete="off"></div>
@@ -278,15 +290,15 @@ async function home(){
   const list=duels||[];
   const activeIds=list.filter(d=>d.status==='active').map(d=>d.id);
   let byDuel={};
-  if(activeIds.length){const {data:rs}=await sb.from('rounds').select('duel_id,round_no,a_guesses,b_guesses').in('duel_id',activeIds);
+  if(activeIds.length){const {data:rs}=await sb.from('rounds').select('duel_id,round_no,question_ids,a_self,b_self,a_guesses,b_guesses').in('duel_id',activeIds);
     (rs||[]).forEach(r=>{(byDuel[r.duel_id]=byDuel[r.duel_id]||[]).push(r);});}
   const rows=list.length?list.map(d=>{
     const meA=d.a===me.id, opName=meA?d.b_name:d.a_name, myW=meA?d.wins_a:d.wins_b, opW=meA?d.wins_b:d.wins_a;
     let badge;
     if(d.status==='finished') badge=d.winner===me.id?`<span class="badge won">Won ${myW}-${opW}</span>`:(d.winner?`<span class="badge lost">Lost ${myW}-${opW}</span>`:`<span class="badge draw">Draw ${myW}-${opW}</span>`);
-    else{const rs=(byDuel[d.id]||[]).sort((a,b)=>b.round_no-a.round_no),cur=rs[0];
-      const mySelf=cur?(meA?cur.a_guesses:cur.b_guesses):null, both=cur&&cur.a_guesses!=null&&cur.b_guesses!=null;
-      badge=(mySelf==null||both)?'<span class="badge turn">Your turn</span>':'<span class="badge wait">Waiting</span>';}
+    else{const rs=(byDuel[d.id]||[]).sort((a,b)=>b.round_no-a.round_no),cur=rs[0];const myR=meA?'a':'b';
+      const turn=cur?roundStage(cur).turn:myR;
+      badge=turn===myR?'<span class="badge turn">Your turn</span>':'<span class="badge wait">Waiting</span>';}
     return `<div class="duel-row" onclick="openDuel('${d.id}')"><div class="av">${esc(initial(opName))}</div>
       <div class="meta"><div class="t">${esc(opName)}</div><div class="s">${myW}–${opW} · first to ${WIN_TARGET}</div></div>${badge}</div>`;
   }).join(''):'<p class="sub">No duels yet. Challenge a friend below 👇</p>';
@@ -369,7 +381,8 @@ async function createDuelWith(opp){
   const {data:duel,error}=await sb.from('duels').insert({a:me.id,b:opp.id,a_name:me.username,b_name:opp.username}).select().single();
   if(error){toast('Could not start duel');return challengeScreen();}
   const picked=shuffle(Q.map(q=>q.id)).slice(0,ROUND_Q).sort((x,y)=>QBYID[x].lvl-QBYID[y].lvl);
-  await sb.from('rounds').insert({duel_id:duel.id,round_no:1,question_ids:picked});
+  const {error:rErr}=await sb.from('rounds').insert({duel_id:duel.id,round_no:1,question_ids:picked});
+  if(rErr){await sb.from('duels').delete().eq('id',duel.id);toast('Could not start duel');return challengeScreen();}
   openDuel(duel.id);
 }
 async function routeChallenge(ch){
@@ -384,24 +397,34 @@ async function routeChallenge(ch){
 
 // ---------- GUEST ROUND 1 (play via link, no account yet) ----------
 function guestPlay(ch){
-  GP={ch,idx:0,phase:'self',selfA:[],guesses:[]};
+  GP={ch,idx:0,phase:'self',selfA:[],guesses:[],fb:null};
   topRight();
   screen.innerHTML=`<div class="mt2 center"><div class="big-emoji">👀</div><h2><span style="color:var(--accent)">${esc(ch.n)}</span> challenged you</h2>
-    <p class="sub mt">Round 1: answer 3 questions about yourself, and guess how ${esc(ch.n)} answered them. No account needed to play this round.</p></div>
+    <p class="sub mt">For each question you’ll first answer about <b>yourself</b>, then guess how <b>${esc(ch.n)}</b> answered — and find out right away if you nailed it. No account needed for round 1.</p></div>
     <div class="footer-btn"><button class="btn" onclick="gpRender()">Play round 1 →</button></div>`;
 }
 function gpRender(){
-  const qid=GP.ch.q[GP.idx],q=QBYID[qid],meta=lvlMeta(q.lvl),self=GP.phase==='self';
+  const q=QBYID[GP.ch.q[GP.idx]],meta=lvlMeta(q.lvl);
   $top.textContent=`Round 1 · ${GP.idx+1}/${ROUND_Q}`;
-  const steps=`<div class="steps"><span class="step s1 ${self?'active':''}"><span class="num">1</span> you</span><span class="step-arrow">→</span><span class="step s2 ${self?'':'active'}"><span class="num">2</span> guess ${esc(GP.ch.n)}</span></div>`;
-  const chip=self?'':`<div class="yourchip">🫵 You said: <b>${esc(answerText(q,GP.selfA[GP.idx]))}</b> — and ${esc(GP.ch.n)}?</div>`;
-  const who=self?'Your honest answer:':`What did <b>${esc(GP.ch.n)}</b> answer?`;
-  screen.innerHTML=`${steps}<div class="qhead"><span class="pill l${q.lvl}">${meta.emoji} ${meta.name}</span></div>
-    ${chip}<div class="who">${who}</div><div class="qtext">${esc(q.label)}</div>
+  if(GP.fb){
+    screen.innerHTML=`${fbHTML(q,GP.fb.guess,GP.fb.actual,GP.ch.n)}
+      <div class="footer-btn"><button class="btn" onclick="gpFbNext()">${GP.idx<ROUND_Q-1?'Next question →':'See my score →'}</button></div>`;
+    return;
+  }
+  const self=GP.phase==='self';
+  const bar=self?`<div class="modebar self">✍️ ABOUT YOU</div>`:`<div class="modebar guess">🎯 GUESS ${esc(GP.ch.n.toUpperCase())}</div>`;
+  const chip=self?'':`<div class="yourchip">🫵 You said: <b>${esc(answerText(q,GP.selfA[GP.idx]))}</b></div>`;
+  const who=self?'Answer honestly about yourself:':`How did <b>${esc(GP.ch.n)}</b> answer this?`;
+  screen.innerHTML=`<div class="qhead"><span class="pill l${q.lvl}">${meta.emoji} ${meta.name}</span></div>
+    ${bar}${chip}<div class="who">${who}</div><div class="qtext">${esc(q.label)}</div>
     <div id="body">${inputHTML(q,self?'gpself':'gpguess')}</div>`;
 }
 function gpSelf(v){GP.selfA[GP.idx]=v;GP.phase='guess';gpRender();}
-function gpGuess(v){GP.guesses[GP.idx]=v;if(GP.idx<ROUND_Q-1){GP.idx++;GP.phase='self';gpRender();}else gpResult();}
+function gpGuess(v){GP.guesses[GP.idx]=v;GP.fb={guess:v,actual:GP.ch.a[GP.idx]};gpRender();}
+function gpFbNext(){GP.fb=null;
+  if(GP.idx<ROUND_Q-1){GP.idx++;GP.phase='self';gpRender();}
+  else gpResult();
+}
 function gpResult(){
   const ch=GP.ch;let c=0;ch.q.forEach((qid,i)=>{c+=scoreOne(QBYID[qid],GP.guesses[i],ch.a[i]);});
   const ov=ch.q.map((qid,i)=>{const q=QBYID[qid],s=scoreOne(q,GP.guesses[i],ch.a[i]),ic=s>=1?'🟢':s>0?'🟡':'🔴';
@@ -418,13 +441,35 @@ async function finalizeChallenge(){
   const pc=pendingChallenge;pendingChallenge=null;pendingPlayUser=null;spin();
   const {data:duel,error}=await sb.from('duels').insert({a:me.id,b:pc.creatorId,a_name:me.username,b_name:pc.creatorName}).select().single();
   if(error){toast('Could not start match');return home();}
-  await sb.from('rounds').insert({duel_id:duel.id,round_no:1,question_ids:pc.qids,a_self:pc.guestSelf,a_guesses:pc.guestGuesses,b_self:pc.creatorSelf});
+  const {error:rErr}=await sb.from('rounds').insert({duel_id:duel.id,round_no:1,question_ids:pc.qids,a_self:pc.guestSelf,a_guesses:pc.guestGuesses,b_self:pc.creatorSelf});
+  if(rErr){await sb.from('duels').delete().eq('id',duel.id);toast('Could not start match');return home();}
   const ups=pc.qids.map((qid,i)=>({user_id:me.id,question_id:qid,answer:pc.guestSelf[i]}));
   await sb.from('self_answers').upsert(ups);if(me.answered)pc.qids.forEach(q=>me.answered.add(q));
   openDuel(duel.id);
 }
 
 // ---------- DUEL ----------
+// Strict turn order per round: starter answers self → responder answers self + guesses
+// starter (immediate feedback) → starter guesses responder (immediate feedback) → resolve.
+// Starter alternates each round so both players take turns going first.
+function starterRole(roundNo){return roundNo%2===1?'a':'b';}
+function roundStage(r){
+  const S=starterRole(r.round_no), T=S==='a'?'b':'a';
+  const full=x=>x!=null&&x.length===r.question_ids.length;
+  if(!full(r[S+'_self']))return {stage:'s_self',turn:S,S,T};
+  if(!full(r[T+'_self'])||!full(r[T+'_guesses']))return {stage:'t_play',turn:T,S,T};
+  if(!full(r[S+'_guesses']))return {stage:'s_guess',turn:S,S,T};
+  return {stage:'done',turn:null,S,T};
+}
+function fbHTML(q,guessV,actualV,oppN){
+  const s=scoreOne(q,guessV,actualV),ok=s>=1,part=s>0&&s<1;
+  const cls=ok?'ok':part?'part':'no',ic=ok?'✅':part?'😬':'❌',verdict=ok?'Spot on!':part?'So close!':'Not quite';
+  return `<div class="modebar guess">🎯 GUESS ${esc((oppN||'').toUpperCase())}</div>
+    <div class="qtext" style="font-size:19px; margin-bottom:16px">${esc(q.label)}</div>
+    <div class="fbig">${ic}</div><div class="fbverdict ${cls}">${verdict}</div>
+    <div class="fbrow them"><span class="lbl">${esc(oppN)} answered</span><b>${esc(answerText(q,actualV))}</b></div>
+    <div class="fbrow"><span class="lbl">You guessed</span><b>${esc(answerText(q,guessV))}</b></div>`;
+}
 function duelHeader(){
   const myW=myRole==='a'?D.wins_a:D.wins_b, opW=myRole==='a'?D.wins_b:D.wins_a;
   let p='',o='';for(let i=0;i<WIN_TARGET;i++){p+=`<span class="pip ${i<myW?'me':''}"></span>`;o+=`<span class="pip ${i<opW?'op':''}"></span>`;}
@@ -437,11 +482,14 @@ async function openDuel(id){
   D=duel;myRole=D.a===me.id?'a':'b';oppId=myRole==='a'?D.b:D.a;oppName=myRole==='a'?D.b_name:D.a_name;
   let {data:rounds}=await sb.from('rounds').select('*').eq('duel_id',id).order('round_no');
   RND=rounds||[];
+  if(D.status!=='finished'&&(D.wins_a>=WIN_TARGET||D.wins_b>=WIN_TARGET)){await finishByWins();return duelResult();}
   if(D.status==='finished')return duelResult();
   let cur=RND[RND.length-1];
-  if(cur&&cur.a_guesses!=null&&cur.b_guesses!=null){
-    if(cur.a_correct==null)await computeResolve(cur);
+  if(cur&&roundStage(cur).stage==='done'){
+    let justResolved=false;
+    if(cur.a_correct==null){await computeResolve(cur);justResolved=true;}
     if(D.status==='finished')return duelResult();
+    if(justResolved){playRound=cur;return roundResult(cur);}
     const nxt=await createNextRound();if(!nxt){await finishByWins();return duelResult();}
     RND.push(nxt);cur=nxt;
   }
@@ -454,10 +502,15 @@ function matchScreen(cur){
   const rows=resolved.map(r=>{const myC=myRole==='a'?r.a_correct:r.b_correct,opC=myRole==='a'?r.b_correct:r.a_correct;
     const ic=r.winner===me.id?'🟢':r.winner?'🔴':'🤝';
     return `<div class="duel-row" onclick="viewRound(${r.round_no})"><div class="meta"><div class="t">Round ${r.round_no} ${ic}</div><div class="s">You ${myC} – ${opC} ${esc(oppName)}</div></div><span class="badge wait">View ›</span></div>`;}).join('');
-  const mySelf=myRole==='a'?cur.a_guesses:cur.b_guesses;
+  const st=roundStage(cur), myTurn=st.turn===myRole;
   let action;
-  if(mySelf==null)action=`<button class="btn" onclick="dgStart()">Play round ${cur.round_no} →</button>`;
-  else action=`<div class="center sub" style="margin:14px 0">⏳ Waiting for <b style="color:var(--text)">${esc(oppName)}</b> to play round ${cur.round_no}.</div><button class="btn ghost" onclick="goHome()">← My duels</button>`;
+  if(myTurn){
+    const label=st.stage==='s_guess'?`Guess ${esc(oppName)}`:st.stage==='s_self'?`Start round ${cur.round_no}`:`Play round ${cur.round_no}`;
+    const hint=st.stage==='s_self'?'Answer 3 questions about yourself — then it’s their turn.':st.stage==='s_guess'?`${esc(oppName)} has played. Guess their answers to win the round.`:`Answer about yourself and guess ${esc(oppName)} — with instant feedback.`;
+    action=`<p class="hint" style="margin-bottom:10px">${hint}</p><button class="btn" onclick="dgStart()">${label} →</button>`;
+  } else {
+    action=`<div class="center sub" style="margin:14px 0">⏳ Waiting for <b style="color:var(--text)">${esc(oppName)}</b> to take their turn on round ${cur.round_no}.</div><button class="btn ghost" onclick="goHome()">← My duels</button>`;
+  }
   screen.innerHTML=`<div class="mt"><h2>You vs ${esc(oppName)}</h2></div>${duelHeader()}
     ${resolved.length?`<div class="section-t">Rounds so far</div>${rows}`:''}
     <div class="footer-btn stack">${action}</div>`;
@@ -469,31 +522,57 @@ function viewRound(n){const r=RND.find(x=>x.round_no===n);if(!r)return;
     <p class="sub">You ${myC} · ${esc(oppName)} ${opC}</p></div>
     <div class="section-t">Answers</div>${roundRevealHtml(r)}
     <div class="footer-btn"><button class="btn ghost" onclick="openDuel('${D.id}')">← Back to duel</button></div>`;}
-function dgStart(){const r=playRound,mySelf=myRole==='a'?r.a_self:r.b_self;
-  if(mySelf!=null&&mySelf.length===r.question_ids.length){DG={round:r,idx:0,phase:'guess',selfA:mySelf.slice(),guesses:[]};}
-  else{DG={round:r,idx:0,phase:'self',selfA:[],guesses:[]};}
-  dgRender();}
+function dgStart(){
+  const r=playRound, st=roundStage(r), oppR=myRole==='a'?'b':'a';
+  const mySelf=r[myRole+'_self'], hasSelf=mySelf!=null&&mySelf.length===r.question_ids.length;
+  let mode;
+  if(st.stage==='s_self')mode='self_only';
+  else if(st.stage==='s_guess')mode='guess_only';
+  else mode=hasSelf?'guess_only':'interleaved'; // t_play
+  const tgt=r[oppR+'_self'];
+  DG={round:r,idx:0,mode,phase:mode==='guess_only'?'guess':'self',selfA:hasSelf?mySelf.slice():[],guesses:[],targetSelf:tgt?tgt.slice():[],fb:null};
+  dgRender();
+}
 function dgRender(){
-  const r=DG.round,q=QBYID[r.question_ids[DG.idx]],meta=lvlMeta(q.lvl),self=DG.phase==='self';
+  const r=DG.round,q=QBYID[r.question_ids[DG.idx]],meta=lvlMeta(q.lvl);
   $top.textContent=`Round ${r.round_no} · ${DG.idx+1}/${ROUND_Q}`;
-  const steps=`<div class="steps"><span class="step s1 ${self?'active':''}"><span class="num">1</span> you</span><span class="step-arrow">→</span><span class="step s2 ${self?'':'active'}"><span class="num">2</span> guess ${esc(oppName)}</span></div>`;
-  const chip=self?'':`<div class="yourchip">🫵 You said: <b>${esc(answerText(q,DG.selfA[DG.idx]))}</b> — and ${esc(oppName)}?</div>`;
-  const who=self?'Your honest answer:':`What did <b>${esc(oppName)}</b> answer?`;
-  screen.innerHTML=`${duelHeader()}${steps}
+  if(DG.fb){
+    screen.innerHTML=`${duelHeader()}${fbHTML(q,DG.fb.guess,DG.fb.actual,oppName)}
+      <div class="footer-btn"><button class="btn" onclick="dgFbNext()">${DG.idx<ROUND_Q-1?'Next question →':'See round result →'}</button></div>`;
+    return;
+  }
+  const self=DG.phase==='self';
+  const bar=self?`<div class="modebar self">✍️ ABOUT YOU</div>`:`<div class="modebar guess">🎯 GUESS ${esc(oppName.toUpperCase())}</div>`;
+  const chip=self?'':`<div class="yourchip">🫵 You said: <b>${esc(answerText(q,DG.selfA[DG.idx]))}</b></div>`;
+  const who=self?'Answer honestly about yourself:':`How did <b>${esc(oppName)}</b> answer this?`;
+  screen.innerHTML=`${duelHeader()}${bar}
     <div class="qhead"><span class="pill l${q.lvl}">${meta.emoji} ${meta.name}</span></div>
     ${chip}<div class="who">${who}</div><div class="qtext">${esc(q.label)}</div>
     <div id="body">${inputHTML(q,self?'dgself':'dgguess')}</div>`;
 }
-function dgSelf(v){DG.selfA[DG.idx]=v;DG.phase='guess';dgRender();}
-function dgGuess(v){DG.guesses[DG.idx]=v;if(DG.idx<ROUND_Q-1){DG.idx++;DG.phase='self';dgRender();}else dgSubmit();}
+function dgSelf(v){DG.selfA[DG.idx]=v;
+  if(DG.mode==='interleaved'){DG.phase='guess';dgRender();}
+  else if(DG.idx<ROUND_Q-1){DG.idx++;dgRender();}
+  else dgSubmit();
+}
+function dgGuess(v){DG.guesses[DG.idx]=v;DG.fb={guess:v,actual:DG.targetSelf[DG.idx]};dgRender();}
+function dgFbNext(){DG.fb=null;
+  if(DG.idx<ROUND_Q-1){DG.idx++;DG.phase=DG.mode==='interleaved'?'self':'guess';dgRender();}
+  else dgSubmit();
+}
 async function dgSubmit(){
-  spin();const r=DG.round;
-  await sb.from('rounds').update({[myRole+'_self']:DG.selfA,[myRole+'_guesses']:DG.guesses}).eq('id',r.id);
-  const ups=r.question_ids.map((qid,i)=>({user_id:me.id,question_id:qid,answer:DG.selfA[i]}));
-  await sb.from('self_answers').upsert(ups);ups.forEach(u=>me.answered&&me.answered.add(u.question_id));
+  if(DG._sub)return;DG._sub=true;spin();
+  const r=DG.round,patch={};
+  if(DG.mode!=='guess_only')patch[myRole+'_self']=DG.selfA;
+  if(DG.mode!=='self_only')patch[myRole+'_guesses']=DG.guesses;
+  // Lock on the field that completes THIS turn → a re-submit is a no-op, so a resolved
+  // round's winner can never be flipped and a turn can't be played twice.
+  const lock=DG.mode==='self_only'?myRole+'_self':myRole+'_guesses';
+  await sb.from('rounds').update(patch).eq('id',r.id).is(lock,null);
+  if(DG.mode!=='guess_only'){const ups=r.question_ids.map((qid,i)=>({user_id:me.id,question_id:qid,answer:DG.selfA[i]}));await sb.from('self_answers').upsert(ups);ups.forEach(u=>me.answered&&me.answered.add(u.question_id));}
   const {data:fresh}=await sb.from('rounds').select('*').eq('id',r.id).maybeSingle();
-  const oppDone=myRole==='a'?fresh.b_guesses:fresh.a_guesses;
-  if(oppDone!=null){await computeResolve(fresh);roundResult(fresh);}
+  if(!fresh){toast('Could not save — try again');return openDuel(D.id);}
+  if(roundStage(fresh).stage==='done'){await computeResolve(fresh);roundResult(fresh);}
   else duelWaiting(fresh);
 }
 async function computeResolve(r){
@@ -534,6 +613,7 @@ function duelWaiting(r){
     ${duelHeader()}<div class="footer-btn"><button class="btn" onclick="goHome()">Back to my duels →</button></div>`;
 }
 async function createNextRound(){
+  if(D.wins_a>=WIN_TARGET||D.wins_b>=WIN_TARGET)return null;
   const used=RND.flatMap(r=>r.question_ids);
   const pool=Q.map(q=>q.id).filter(id=>!used.includes(id));
   if(pool.length<ROUND_Q)return null;
@@ -569,11 +649,11 @@ async function leaderboard(){
   const ids=(duels||[]).map(d=>d.id);const dById=Object.fromEntries((duels||[]).map(d=>[d.id,d]));
   const acc={};
   if(ids.length){const {data:rs}=await sb.from('rounds').select('*').in('duel_id',ids);
-    (rs||[]).forEach(r=>{const d=dById[r.duel_id];if(!d)return;const meA=d.a===me.id,opName=meA?d.b_name:d.a_name;
+    (rs||[]).forEach(r=>{const d=dById[r.duel_id];if(!d)return;const meA=d.a===me.id,oid=meA?d.b:d.a,opName=meA?d.b_name:d.a_name;
       const opGuess=meA?r.b_guesses:r.a_guesses,mySelf=meA?r.a_self:r.b_self;
-      if(!opGuess||!mySelf)return;acc[opName]=acc[opName]||{c:0,t:0};
-      r.question_ids.forEach((qid,i)=>{acc[opName].t++;acc[opName].c+=scoreOne(QBYID[qid],opGuess[i],mySelf[i]);});});}
-  const rows=Object.entries(acc).map(([n,s])=>[n,s.t?Math.round(s.c/s.t*100):0,s.t]).filter(r=>r[2]>0).sort((a,b)=>b[1]-a[1]);
+      if(!opGuess||!mySelf)return;acc[oid]=acc[oid]||{name:opName,c:0,t:0};
+      r.question_ids.forEach((qid,i)=>{acc[oid].t++;acc[oid].c+=scoreOne(QBYID[qid],opGuess[i],mySelf[i]);});});}
+  const rows=Object.values(acc).map(s=>[s.name,s.t?Math.round(s.c/s.t*100):0,s.t]).filter(r=>r[2]>0).sort((a,b)=>b[1]-a[1]);
   const body=rows.length?rows.map(([n,p],i)=>`<div class="lb-row ${i===0?'top':''}"><span class="lb-rank">${i===0?'👑':'#'+(i+1)}</span><span class="lb-name">${esc(n)}</span><span class="lb-pct">${p}%</span></div>`).join(''):'<p class="sub">No one has guessed you yet. Challenge a friend!</p>';
   screen.innerHTML=`<div class="mt center"><h2>Who knows me best</h2><p class="sub">Ranked by how well friends guess your answers.</p></div>
     <div class="mt">${body}</div><div class="footer-btn"><button class="btn ghost" onclick="goHome()">← Back</button></div>`;
