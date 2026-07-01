@@ -707,8 +707,13 @@ async function finalizeChallenge(){
 // ---------- DUEL ----------
 // Strict turn order per round: starter answers self → responder answers self + guesses
 // starter (immediate feedback) → starter guesses responder (immediate feedback) → resolve.
-// Starter alternates each round so both players take turns going first.
-function starterRole(roundNo){return roundNo%2===1?'a':'b';}
+// The starter is ALWAYS player a (Quizduell-style pipeline): right after a resolves round N,
+// they answer their 3 self questions for round N+1 in the same sitting — so no turn is ever
+// "answering only" except a's very first, and a round needs 2 sittings instead of 3.
+// In-flight rounds from the old alternating-starter model still play out and resolve fine:
+// the stage machine below is purely fill-state-driven (worst case, one old even round takes
+// one extra sitting while a catches up on their self answers).
+function starterRole(roundNo){return 'a';}
 function roundStage(r){
   const S=starterRole(r.round_no), T=S==='a'?'b':'a';
   const full=x=>x!=null&&x.length===r.question_ids.length;
@@ -763,8 +768,8 @@ function matchScreen(cur){
   const st=roundStage(cur), myTurn=st.turn===myRole;
   let action;
   if(myTurn){
-    const label=st.stage==='s_guess'?`Guess ${esc(oppName)}`:st.stage==='s_self'?`Start round ${cur.round_no}`:`Play round ${cur.round_no}`;
-    const hint=st.stage==='s_self'?'Answer 3 questions about yourself — then it’s their turn.':st.stage==='s_guess'?`${esc(oppName)} has played. Guess their answers to win the round.`:`Answer about yourself and guess ${esc(oppName)} — with instant feedback.`;
+    const label=st.stage==='s_guess'?`Guess ${esc(oppName)}`:st.stage==='s_self'?(cur.round_no===1?'Start round 1':`Answer 3 for round ${cur.round_no}`):`Play round ${cur.round_no}`;
+    const hint=st.stage==='s_self'?`Answer 3 questions about yourself — then ${esc(oppName)} plays.`:st.stage==='s_guess'?`${esc(oppName)} has played. Guess their answers to win the round.`:`Answer about yourself and guess ${esc(oppName)} — with instant feedback.`;
     action=`<p class="hint" style="margin-bottom:10px">${hint}</p><button class="btn" onclick="dgStart()">${label} →</button>`;
   } else {
     action=`<div class="center sub" style="margin:14px 0">⏳ Waiting for <b style="color:var(--text)">${esc(oppName)}</b> to take their turn on round ${cur.round_no}.</div>
