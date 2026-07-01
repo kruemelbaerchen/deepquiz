@@ -40,13 +40,9 @@
   .prog{display:flex; gap:5px; margin:6px 0 14px;}
   .prog span{height:5px; flex:1; border-radius:99px; background:rgba(255,255,255,.12);}
   .prog span.done{background:linear-gradient(90deg,var(--accent),var(--gold));} .prog span.cur{background:rgba(255,255,255,.35);}
-  .steps{display:flex; gap:8px; align-items:center; margin-bottom:14px; font-size:12px; color:var(--muted);}
-  .step{display:flex; align-items:center; gap:6px; opacity:.45; font-weight:600;}
-  .step.active{opacity:1; color:var(--text);}
-  .step .num{width:18px; height:18px; border-radius:50%; background:rgba(255,255,255,.15); display:inline-flex; align-items:center; justify-content:center; font-size:11px;}
-  .step.active.s1 .num{background:var(--blue); color:#10243d;}
-  .step.active.s2 .num{background:var(--accent); color:#3a0d22;}
-  .step-arrow{opacity:.4;}
+  .spicy-row{display:flex; align-items:center; gap:10px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; font-size:14px; cursor:pointer; margin-top:8px;}
+  .spicy-row input{width:18px; height:18px; accent-color:var(--accent); cursor:pointer; flex-shrink:0;}
+  .slider-val{text-align:center; font-weight:800; color:var(--accent); font-size:15px; margin-top:10px;}
   .qhead{display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;}
   .who{color:var(--muted); font-size:14px; margin-bottom:9px;} .who b{color:var(--accent);}
   .qtext{font-size:25px; font-weight:700; line-height:1.25; margin-bottom:22px; color:var(--text);}
@@ -176,6 +172,258 @@ const Q=[
   {id:'s12',lvl:4,fmt:'slider',label:'How jealous are you?',poles:['Never','Very']},
   {id:'s13',lvl:4,fmt:'mc',label:'Most attractive trait in someone?',options:['Confidence','Kindness','Mystery','Ambition']},
   {id:'s14',lvl:4,fmt:'slider',label:'PDA — how into it are you?',poles:['Keep it private','Bring it on']},
+  // ---- expansion pack: warmup ----
+  {id:'w15',lvl:1,fmt:'binary',label:'Pineapple on pizza?',options:['Absolutely','That’s a crime']},
+  {id:'w16',lvl:1,fmt:'binary',label:'Summer or winter?',options:['Summer','Winter']},
+  {id:'w17',lvl:1,fmt:'binary',label:'The book or the movie?',options:['Book','Movie']},
+  {id:'w18',lvl:1,fmt:'binary',label:'City or countryside?',options:['City','Countryside']},
+  {id:'w19',lvl:1,fmt:'binary',label:'Shower: morning or evening?',options:['Morning','Evening']},
+  {id:'w20',lvl:1,fmt:'binary',label:'Cash or card?',options:['Cash','Card']},
+  {id:'w21',lvl:1,fmt:'binary',label:'Dark mode or light mode?',options:['Dark mode','Light mode']},
+  {id:'w22',lvl:1,fmt:'binary',label:'Camping or hotel?',options:['Camping','Hotel']},
+  {id:'w23',lvl:1,fmt:'binary',label:'Phone: loud or always on silent?',options:['Loud','Always silent']},
+  {id:'w24',lvl:1,fmt:'binary',label:'Breakfast: essential or skippable?',options:['Essential','Skippable']},
+  {id:'w25',lvl:1,fmt:'binary',label:'Sneakers or nice shoes?',options:['Sneakers','Nice shoes']},
+  {id:'w26',lvl:1,fmt:'binary',label:'Popcorn: salty or sweet?',options:['Salty','Sweet']},
+  {id:'w27',lvl:1,fmt:'binary',label:'Laundry: folded right away or the chair?',options:['Folded right away','The chair']},
+  {id:'w28',lvl:1,fmt:'binary',label:'Roller coasters?',options:['Love them','Hard pass']},
+  {id:'w29',lvl:1,fmt:'binary',label:'Karaoke?',options:['Give me the mic','Never ever']},
+  {id:'w30',lvl:1,fmt:'binary',label:'Cook at home or order in?',options:['Cook','Order']},
+  {id:'w31',lvl:1,fmt:'binary',label:'Airport: very early or last call?',options:['Very early','Last call']},
+  {id:'w32',lvl:1,fmt:'binary',label:'Socks in bed?',options:['Yes','Never']},
+  {id:'w33',lvl:1,fmt:'binary',label:'iPhone or Android?',options:['iPhone','Android']},
+  {id:'w34',lvl:1,fmt:'binary',label:'New Year’s Eve: big party or quiet night?',options:['Big party','Quiet night']},
+  {id:'w35',lvl:1,fmt:'mc',label:'Pick a superpower:',options:['Fly','Invisibility','Read minds','Time travel']},
+  {id:'w36',lvl:1,fmt:'mc',label:'Your ideal vacation?',options:['Beach & do nothing','City & culture','Hiking & nature','Road trip & chaos']},
+  {id:'w37',lvl:1,fmt:'mc',label:'How do you watch a new series?',options:['Binge it in one weekend','A few episodes a night','Slowly, over months','I never finish shows']},
+  {id:'w38',lvl:1,fmt:'mc',label:'What actually makes you late?',options:['Nothing — I’m early','One more thing at home','Underestimating the way','Honestly? My bed']},
+  {id:'w39',lvl:1,fmt:'mc',label:'Your karaoke song would be…',options:['A cheesy ballad','A 2000s hit','Rap — full lyrics','I’d fake a sore throat']},
+  {id:'w40',lvl:1,fmt:'mc',label:'On a road trip you’re…',options:['The driver','The DJ','The snack manager','Asleep in the back']},
+  {id:'w41',lvl:1,fmt:'mc',label:'Your fridge mostly contains…',options:['Actual groceries','Leftovers & takeout','Condiments and hope','Drinks, mainly']},
+  {id:'w42',lvl:1,fmt:'mc',label:'Pick a breakfast:',options:['Sweet — pancakes & co.','Savory — eggs & bread','Just coffee','Whatever’s there']},
+  {id:'w43',lvl:1,fmt:'mc',label:'Your dream pet, honestly?',options:['Dog','Cat','Something exotic','No pets, ever']},
+  {id:'w44',lvl:1,fmt:'mc',label:'At a buffet you…',options:['Scout everything first','Pile plate #1 sky-high','Stick to what I know','Dessert first, no shame']},
+  {id:'w45',lvl:1,fmt:'mc',label:'Your music era?',options:['80s or older','90s','2000s','Whatever’s new']},
+  {id:'w46',lvl:1,fmt:'mc',label:'Lost in a new city, you…',options:['Open Maps instantly','Ask a stranger','Wander until it works out','Panic quietly']},
+  {id:'w47',lvl:1,fmt:'mc',label:'Your phone battery is usually…',options:['Above 80%','Comfortable middle','Below 20%','On 1% and thriving']},
+  {id:'w48',lvl:1,fmt:'mc',label:'The last photo on your phone is probably…',options:['Food','A screenshot','People or a selfie','Something random']},
+  {id:'w49',lvl:1,fmt:'mc',label:'Your go-to small talk topic?',options:['Food','Travel','Gossip','The weather, honestly']},
+  {id:'w50',lvl:1,fmt:'mc',label:'Your comfort rewatch?',options:['A sitcom I know by heart','A childhood classic','Something epic','I don’t rewatch']},
+  {id:'w51',lvl:1,fmt:'mc',label:'Your alarm situation?',options:['One alarm, up instantly','Three alarms minimum','Snooze marathon','No alarm — I just wake up']},
+  {id:'w52',lvl:1,fmt:'mc',label:'In group photos you’re…',options:['Posing properly','Making a face','Blinking','Taking the photo']},
+  {id:'w53',lvl:1,fmt:'mc',label:'Supermarket style?',options:['List — in and out','Wander every aisle','Snacks yes, essentials forgotten','I order online']},
+  {id:'w54',lvl:1,fmt:'mc',label:'Your party dance move?',options:['Actually dancing','The safe side-step','Air instruments','Holding drinks & judging']},
+  {id:'w55',lvl:1,fmt:'mc',label:'A rainy Sunday is…',options:['Perfect — cozy mode','My plans, ruined','Movie marathon time','I’ll still go out']},
+  {id:'w56',lvl:1,fmt:'slider',label:'How tidy is your place right now?',poles:['Chaos','Spotless']},
+  {id:'w57',lvl:1,fmt:'slider',label:'How spicy do you like your food?',poles:['Mild','Fire']},
+  {id:'w58',lvl:1,fmt:'slider',label:'Your sense of direction?',poles:['Hopeless','Human GPS']},
+  {id:'w59',lvl:1,fmt:'slider',label:'How glued are you to your phone?',poles:['Barely use it','It’s part of my hand']},
+  {id:'w60',lvl:1,fmt:'slider',label:'Sweet tooth level?',poles:['Could skip dessert','Dessert is the point']},
+  {id:'w61',lvl:1,fmt:'slider',label:'How patient are you in a slow queue?',poles:['Zen','Internally screaming']},
+  {id:'w62',lvl:1,fmt:'slider',label:'How adventurous are you with food?',poles:['Order the usual','I’ll try anything']},
+  {id:'w63',lvl:1,fmt:'slider',label:'How punctual are you, really?',poles:['Always late','Painfully early']},
+  {id:'w64',lvl:1,fmt:'slider',label:'Packing for a trip?',poles:['Night-before chaos','Packed days ahead']},
+  {id:'w65',lvl:1,fmt:'slider',label:'How superstitious are you?',poles:['Not at all','Knock on wood']},
+  {id:'w66',lvl:1,fmt:'slider',label:'How good are you with names?',poles:['Forgot yours already','Never forget one']},
+  {id:'w67',lvl:1,fmt:'slider',label:'Singing in the shower or car?',poles:['Never','Full concerts']},
+  {id:'w68',lvl:1,fmt:'slider',label:'How long could you go without your phone?',poles:['Minutes','Days']},
+  {id:'w69',lvl:1,fmt:'slider',label:'Keep or throw away?',poles:['Throw everything out','Keep everything']},
+  {id:'w70',lvl:1,fmt:'slider',label:'Your energy at 8 a.m.?',poles:['Zombie','Sunshine']},
+  {id:'w71',lvl:1,fmt:'slider',label:'Talking to strangers?',poles:['Avoid it','Instant friends']},
+  {id:'w72',lvl:1,fmt:'slider',label:'Caffeine level?',poles:['None at all','Basically an IV drip']},
+  {id:'w73',lvl:1,fmt:'slider',label:'How fast do you reply to messages?',poles:['Days later','Instantly']},
+  {id:'w74',lvl:1,fmt:'slider',label:'How often do you cancel plans last minute?',poles:['Never','It’s a lifestyle']},
+  {id:'w75',lvl:1,fmt:'slider',label:'How do you handle being hungry?',poles:['Totally fine','Hangry monster']},
+  {id:'w76',lvl:1,fmt:'slider',label:'How into fitness are you?',poles:['Allergic to gyms','Live at the gym']},
+  // ---- expansion pack: personal ----
+  {id:'p15',lvl:2,fmt:'binary',label:'Plans get cancelled — how do you feel?',options:['Secretly relieved','Genuinely bummed']},
+  {id:'p16',lvl:2,fmt:'binary',label:'Big party or small dinner?',options:['Big party','Small dinner']},
+  {id:'p17',lvl:2,fmt:'binary',label:'A problem comes up — you…',options:['Address it now','Let it slide']},
+  {id:'p18',lvl:2,fmt:'binary',label:'Compliments make you…',options:['Glow','Awkward']},
+  {id:'p19',lvl:2,fmt:'binary',label:'On a night out: deep talk or fun talk?',options:['Deep talk','Fun talk']},
+  {id:'p20',lvl:2,fmt:'binary',label:'Rather be respected or liked?',options:['Respected','Liked']},
+  {id:'p21',lvl:2,fmt:'binary',label:'Do you talk to yourself out loud?',options:['All the time','Never']},
+  {id:'p22',lvl:2,fmt:'binary',label:'Crying in front of others?',options:['Okay for me','I avoid it']},
+  {id:'p23',lvl:2,fmt:'binary',label:'Who energizes you more?',options:['Old friends','New people']},
+  {id:'p24',lvl:2,fmt:'binary',label:'If you could read minds, would you?',options:['Yes','Absolutely not']},
+  {id:'p25',lvl:2,fmt:'binary',label:'Overthinker or overdoer?',options:['Overthinker','Overdoer']},
+  {id:'p26',lvl:2,fmt:'binary',label:'Do you keep score of favors?',options:['A little, yes','Never']},
+  {id:'p27',lvl:2,fmt:'binary',label:'Your birthday is…',options:['A big deal','Just a day']},
+  {id:'p28',lvl:2,fmt:'binary',label:'Do you google people before meeting them?',options:['Obviously','Never']},
+  {id:'p29',lvl:2,fmt:'binary',label:'Asking for help is…',options:['Easy','A last resort']},
+  {id:'p30',lvl:2,fmt:'binary',label:'In your friend group you’re…',options:['The therapist','The chaos']},
+  {id:'p31',lvl:2,fmt:'binary',label:'Win the argument or keep the peace?',options:['Win it','Keep the peace']},
+  {id:'p32',lvl:2,fmt:'binary',label:'Voice message or typed text?',options:['Voice','Text']},
+  {id:'p33',lvl:2,fmt:'binary',label:'Do you re-read messages you sent?',options:['Constantly','Never']},
+  {id:'p34',lvl:2,fmt:'binary',label:'In a new situation you…',options:['Dive in','Observe first']},
+  {id:'p35',lvl:2,fmt:'mc',label:'What do you value most in a friend?',options:['Loyalty','Honesty','Humor','Showing up']},
+  {id:'p36',lvl:2,fmt:'mc',label:'Your role in the friend group?',options:['The organizer','The listener','The entertainer','The wildcard']},
+  {id:'p37',lvl:2,fmt:'mc',label:'How do you show someone you care?',options:['Checking in','Making time','Small gifts','Brutal honesty']},
+  {id:'p38',lvl:2,fmt:'mc',label:'A surprise free day — first instinct?',options:['Call people','Solo adventure','Catch up on life','Absolutely nothing']},
+  {id:'p39',lvl:2,fmt:'mc',label:'Your toxic trait? (own it)',options:['Too stubborn','Too flaky','Too blunt','Overthinking everything']},
+  {id:'p40',lvl:2,fmt:'mc',label:'When you’re angry you…',options:['Go silent','Say it straight','Vent to someone else','Sleep on it']},
+  {id:'p41',lvl:2,fmt:'mc',label:'A surprise €10k goes to…',options:['Travel','Savings','Something dumb & fun','Family or friends']},
+  {id:'p42',lvl:2,fmt:'mc',label:'The first impression you give?',options:['Confident','Quiet','Funny','Intimidating']},
+  {id:'p43',lvl:2,fmt:'mc',label:'What do people misread about you?',options:['My silence','My humor','My confidence','My kindness']},
+  {id:'p44',lvl:2,fmt:'mc',label:'How do you make big decisions?',options:['Gut instinct','Pro/con lists','Ask everyone I trust','Delay until forced']},
+  {id:'p45',lvl:2,fmt:'mc',label:'You win arguments with…',options:['Facts','Volume','Charm','I don’t argue']},
+  {id:'p46',lvl:2,fmt:'mc',label:'What can’t you resist buying?',options:['Food & snacks','Clothes','Tech & gadgets','Experiences']},
+  {id:'p47',lvl:2,fmt:'mc',label:'The chore you’d pay to never do?',options:['Dishes','Laundry','Deep cleaning','Calling customer service']},
+  {id:'p48',lvl:2,fmt:'mc',label:'Your worst conversation habit?',options:['Interrupting','Zoning out','One-upping stories','Unsolicited advice']},
+  {id:'p49',lvl:2,fmt:'mc',label:'What stresses you most?',options:['Deadlines','Conflict','Uncertainty','Other people’s expectations']},
+  {id:'p50',lvl:2,fmt:'mc',label:'How do you recharge?',options:['Alone time','Nature','Friends','Sleep']},
+  {id:'p51',lvl:2,fmt:'mc',label:'Your money style?',options:['Careful planner','Impulse buyer','Generous to a fault','Where did it go?']},
+  {id:'p52',lvl:2,fmt:'mc',label:'Friends would say your superpower is…',options:['Making people laugh','Keeping secrets','Getting things done','Reading people']},
+  {id:'p53',lvl:2,fmt:'mc',label:'A friend vents to you — you…',options:['Go fix-it mode','Just listen','Match their outrage','Distract them']},
+  {id:'p54',lvl:2,fmt:'mc',label:'Hardest thing for you to say?',options:['“I’m sorry”','“I need help”','“No”','“I love you”']},
+  {id:'p55',lvl:2,fmt:'mc',label:'You’re most productive…',options:['Early morning','Late at night','Under deadline panic','In random bursts']},
+  {id:'p56',lvl:2,fmt:'slider',label:'Introvert or extrovert?',poles:['Full introvert','Full extrovert']},
+  {id:'p57',lvl:2,fmt:'slider',label:'How stubborn are you?',poles:['Pushover','Mule']},
+  {id:'p58',lvl:2,fmt:'slider',label:'How long do you hold grudges?',poles:['Forgotten by dinner','Lifetime archive']},
+  {id:'p59',lvl:2,fmt:'slider',label:'Spender or saver?',poles:['Money flies','Every cent counts']},
+  {id:'p60',lvl:2,fmt:'slider',label:'How ambitious are you?',poles:['Comfort first','World domination']},
+  {id:'p61',lvl:2,fmt:'slider',label:'How well do you take criticism?',poles:['It wrecks me','Bring it on']},
+  {id:'p62',lvl:2,fmt:'slider',label:'People-pleaser level?',poles:['Not my problem','Can’t say no']},
+  {id:'p63',lvl:2,fmt:'slider',label:'How decisive are you?',poles:['The menu takes me 20 minutes','Instant']},
+  {id:'p64',lvl:2,fmt:'slider',label:'How much routine do you need?',poles:['Same day forever, please','Constant change']},
+  {id:'p65',lvl:2,fmt:'slider',label:'Apologizing when it’s NOT your fault?',poles:['Never','Constantly']},
+  {id:'p66',lvl:2,fmt:'slider',label:'FOMO level?',poles:['Happy to miss out','Can’t miss anything']},
+  {id:'p67',lvl:2,fmt:'slider',label:'How private are you?',poles:['Open book','Vault']},
+  {id:'p68',lvl:2,fmt:'slider',label:'How easily embarrassed are you?',poles:['Shameless','Dying inside daily']},
+  {id:'p69',lvl:2,fmt:'slider',label:'How nostalgic are you?',poles:['Never look back','Live in the past']},
+  {id:'p70',lvl:2,fmt:'slider',label:'How much do you trust your gut?',poles:['Head decides','Gut always wins']},
+  {id:'p71',lvl:2,fmt:'slider',label:'How good are you at being alone?',poles:['Need people around','Could live alone forever']},
+  {id:'p72',lvl:2,fmt:'slider',label:'How dramatic are you when sick?',poles:['Silent soldier','It’s the end']},
+  {id:'p73',lvl:2,fmt:'slider',label:'How well do you keep secrets?',poles:['They slip out','To the grave']},
+  {id:'p74',lvl:2,fmt:'slider',label:'How much do you swear?',poles:['Never','Every sentence']},
+  {id:'p75',lvl:2,fmt:'slider',label:'A promise from you is…',poles:['More of an idea','Law']},
+  {id:'p76',lvl:2,fmt:'slider',label:'How much does sleep rule your mood?',poles:['Not at all','Entirely']},
+  // ---- expansion pack: deep ----
+  {id:'d15',lvl:3,fmt:'binary',label:'Do you believe in soulmates?',options:['Yes','No']},
+  {id:'d16',lvl:3,fmt:'binary',label:'Would you want to know the date of your death?',options:['Yes','Never']},
+  {id:'d17',lvl:3,fmt:'binary',label:'Truly known or safely private?',options:['Truly known','Safely private']},
+  {id:'d18',lvl:3,fmt:'binary',label:'Can people really change?',options:['Yes, deeply','Rarely']},
+  {id:'d19',lvl:3,fmt:'binary',label:'Is love a feeling or a decision?',options:['A feeling','A decision']},
+  {id:'d20',lvl:3,fmt:'binary',label:'Would you relive your childhood?',options:['In a heartbeat','No, thanks']},
+  {id:'d21',lvl:3,fmt:'binary',label:'Afraid of becoming your parents?',options:['A little, yes','Not at all']},
+  {id:'d22',lvl:3,fmt:'binary',label:'What would you regret more at the end?',options:['Things I did','Things I never did']},
+  {id:'d23',lvl:3,fmt:'binary',label:'Would you erase your most painful memory?',options:['Erase it','Keep it']},
+  {id:'d24',lvl:3,fmt:'binary',label:'Do you think you’re easy to love?',options:['Yes','Honestly, no']},
+  {id:'d25',lvl:3,fmt:'binary',label:'Have you forgiven yourself for your biggest mistake?',options:['Yes','Still working on it']},
+  {id:'d26',lvl:3,fmt:'binary',label:'Peak early or peak late in life?',options:['Early','Late']},
+  {id:'d27',lvl:3,fmt:'binary',label:'Does everything happen for a reason?',options:['Yes','No — it’s random']},
+  {id:'d28',lvl:3,fmt:'binary',label:'If no one would ever know — still do the right thing?',options:['Always','Honestly… not always']},
+  {id:'d29',lvl:3,fmt:'binary',label:'Is your inner voice kind to you?',options:['Mostly kind','Mostly harsh']},
+  {id:'d30',lvl:3,fmt:'binary',label:'Would you swap lives with someone you know?',options:['Yes, someone','No — I keep mine']},
+  {id:'d31',lvl:3,fmt:'binary',label:'Inside, do you feel…',options:['Older than I am','Younger than I am']},
+  {id:'d32',lvl:3,fmt:'binary',label:'When you’re struggling, can people tell?',options:['They can tell','I hide it well']},
+  {id:'d33',lvl:3,fmt:'mc',label:'What do you need most right now?',options:['Rest','Closeness','Direction','An adventure']},
+  {id:'d34',lvl:3,fmt:'mc',label:'The hardest emotion for you to show?',options:['Sadness','Fear','Anger','Needing help']},
+  {id:'d35',lvl:3,fmt:'mc',label:'Your emotional armor?',options:['Humor','Distance','Staying busy','Being agreeable']},
+  {id:'d36',lvl:3,fmt:'mc',label:'What shaped you most?',options:['My family','A heartbreak','A failure','Someone who believed in me']},
+  {id:'d37',lvl:3,fmt:'mc',label:'When do you feel most alive?',options:['Creating something','Deep conversations','Out in nature','On the edge of risk']},
+  {id:'d38',lvl:3,fmt:'mc',label:'What would hurt most to lose?',options:['My health','One specific person','My freedom','Who I am']},
+  {id:'d39',lvl:3,fmt:'mc',label:'The unfinished business you carry?',options:['A conversation','A shelved dream','A goodbye','A risk I didn’t take']},
+  {id:'d40',lvl:3,fmt:'mc',label:'What heals you when you’re low?',options:['Being held','Being alone','Being heard','Being distracted']},
+  {id:'d41',lvl:3,fmt:'mc',label:'Where do you feel most at home?',options:['A place','A person','Alone with myself','Still searching']},
+  {id:'d42',lvl:3,fmt:'mc',label:'The lie you tell most often?',options:['“I’m fine”','“I don’t care”','“I’m busy”','“It’s all good”']},
+  {id:'d43',lvl:3,fmt:'mc',label:'Your biggest fear about the future?',options:['Ending up alone','Wasting my potential','Losing people I love','Never feeling settled']},
+  {id:'d44',lvl:3,fmt:'mc',label:'What do you crave more of?',options:['Recognition','Peace','Passion','Belonging']},
+  {id:'d45',lvl:3,fmt:'mc',label:'Which compliment would hit deepest?',options:['“You make people feel safe”','“You’re the smartest one here”','“You’re impossible to forget”','“I’m proud of you”']},
+  {id:'d46',lvl:3,fmt:'mc',label:'Which part of you needs the most protecting?',options:['My hope','My heart','My pride','My peace']},
+  {id:'d47',lvl:3,fmt:'mc',label:'Your life’s theme so far?',options:['Fighting for it','Figuring it out','Holding it together','Breaking free']},
+  {id:'d48',lvl:3,fmt:'mc',label:'What do you do with painful memories?',options:['Bury them','Analyze them','Joke about them','Carry them quietly']},
+  {id:'d49',lvl:3,fmt:'mc',label:'Who knows the full you?',options:['One person','A few people','Honestly, no one','Everyone gets a version']},
+  {id:'d50',lvl:3,fmt:'mc',label:'What would 15-year-old you think of you now?',options:['Proud','Surprised','Disappointed','Confused']},
+  {id:'d51',lvl:3,fmt:'mc',label:'Your hardest goodbye was to…',options:['A person','A place','A version of myself','A dream']},
+  {id:'d52',lvl:3,fmt:'mc',label:'What keeps you up at night?',options:['Replaying conversations','Money & the future','People I miss','Everything I still have to do']},
+  {id:'d53',lvl:3,fmt:'mc',label:'If you vanished for a year, you’d…',options:['Travel alone','Start over somewhere new','Rest and heal','Chase the dream I postponed']},
+  {id:'d54',lvl:3,fmt:'mc',label:'Love mostly feels like…',options:['Safety','Excitement','Effort','A risk']},
+  {id:'d55',lvl:3,fmt:'slider',label:'How lonely do you get, honestly?',poles:['Rarely','More than people think']},
+  {id:'d56',lvl:3,fmt:'slider',label:'How afraid are you of failing?',poles:['Not much','It paralyzes me']},
+  {id:'d57',lvl:3,fmt:'slider',label:'Do you like who you’re becoming?',poles:['Not really','Completely']},
+  {id:'d58',lvl:3,fmt:'slider',label:'Do you feel “enough” as you are?',poles:['Rarely','Deeply']},
+  {id:'d59',lvl:3,fmt:'slider',label:'How heavy does your past feel?',poles:['Like a feather','Like an anchor']},
+  {id:'d60',lvl:3,fmt:'slider',label:'How easily do you let people in?',poles:['Walls up','Door’s wide open']},
+  {id:'d61',lvl:3,fmt:'slider',label:'How scary is an ordinary life to you?',poles:['Sounds lovely','Terrifies me']},
+  {id:'d62',lvl:3,fmt:'slider',label:'How at peace are you with your body?',poles:['At war','At peace']},
+  {id:'d63',lvl:3,fmt:'slider',label:'How often do you pretend to be okay?',poles:['Almost never','Almost daily']},
+  {id:'d64',lvl:3,fmt:'slider',label:'How understood do you feel by your family?',poles:['Not at all','Completely']},
+  {id:'d65',lvl:3,fmt:'slider',label:'How much does regret weigh on you?',poles:['I travel light','I carry a lot']},
+  {id:'d66',lvl:3,fmt:'slider',label:'Do you believe in something bigger?',poles:['Pure coincidence','Deeply spiritual']},
+  {id:'d67',lvl:3,fmt:'slider',label:'How afraid are you of commitment?',poles:['Not at all','Very']},
+  {id:'d68',lvl:3,fmt:'slider',label:'How much have you changed in five years?',poles:['Same person','Unrecognizable']},
+  {id:'d69',lvl:3,fmt:'slider',label:'How close have you come to burning out?',poles:['Never close','I’ve been there']},
+  {id:'d70',lvl:3,fmt:'slider',label:'How easily do you forgive yourself?',poles:['Instantly','Almost never']},
+  {id:'d71',lvl:3,fmt:'slider',label:'Afraid of being a burden?',poles:['Never think about it','Constantly']},
+  {id:'d72',lvl:3,fmt:'slider',label:'Silence with another person is…',poles:['Something to fill','Something to enjoy']},
+  {id:'d73',lvl:3,fmt:'slider',label:'Your life so far: chosen or happened to you?',poles:['It happened to me','I chose it']},
+  {id:'d74',lvl:3,fmt:'slider',label:'When you think of your future, you feel…',poles:['Anxious','Excited']},
+  {id:'d75',lvl:3,fmt:'slider',label:'How much do you fear being forgotten?',poles:['Not at all','Deeply']},
+  {id:'d76',lvl:3,fmt:'slider',label:'Restart life — how much would you change?',poles:['Nothing','Everything']},
+  // ---- expansion pack: spicy ----
+  {id:'s15',lvl:4,fmt:'binary',label:'Morning sex or night sex?',options:['Morning','Night']},
+  {id:'s16',lvl:4,fmt:'binary',label:'Sexting?',options:['Into it','Not for me']},
+  {id:'s17',lvl:4,fmt:'binary',label:'Bite or be bitten?',options:['Bite','Be bitten']},
+  {id:'s18',lvl:4,fmt:'binary',label:'Showering together is…',options:['Hot','Awkward']},
+  {id:'s19',lvl:4,fmt:'binary',label:'Toys in the bedroom?',options:['Yes, please','Not needed']},
+  {id:'s20',lvl:4,fmt:'binary',label:'Sex with an ex?',options:['Could happen','Never again']},
+  {id:'s21',lvl:4,fmt:'binary',label:'One-night stands are…',options:['Fun','Empty']},
+  {id:'s22',lvl:4,fmt:'binary',label:'Dirty talk: give or receive?',options:['I talk','I listen']},
+  {id:'s23',lvl:4,fmt:'binary',label:'Kiss on a first date?',options:['Obviously','Too soon']},
+  {id:'s24',lvl:4,fmt:'binary',label:'Hotel sex or home sex?',options:['Hotel','Home']},
+  {id:'s25',lvl:4,fmt:'binary',label:'Neck kisses?',options:['Total weakness','Take it or leave it']},
+  {id:'s26',lvl:4,fmt:'binary',label:'Music during sex?',options:['Yes','Distracting']},
+  {id:'s27',lvl:4,fmt:'binary',label:'Would you try a blindfold?',options:['Yes','No']},
+  {id:'s28',lvl:4,fmt:'binary',label:'Flirting while taken?',options:['Harmless','Already cheating']},
+  {id:'s29',lvl:4,fmt:'binary',label:'The “body count” question?',options:['Fair to ask','Never ask']},
+  {id:'s30',lvl:4,fmt:'binary',label:'Friends with benefits?',options:['Can work','Always ends badly']},
+  {id:'s31',lvl:4,fmt:'binary',label:'Do you sleep naked?',options:['Yes','No']},
+  {id:'s32',lvl:4,fmt:'binary',label:'Rather be the crush or have the crush?',options:['Be the crush','Have the crush']},
+  {id:'s33',lvl:4,fmt:'binary',label:'First sight: love or lust?',options:['Love exists','It’s lust']},
+  {id:'s34',lvl:4,fmt:'binary',label:'After a breakup?',options:['Rebound','Monk mode']},
+  {id:'s35',lvl:4,fmt:'mc',label:'Your most sensitive spot?',options:['Neck','Ears','Lower back','Inner thighs']},
+  {id:'s36',lvl:4,fmt:'mc',label:'Instant turn-off?',options:['Bad breath','Arrogance','Terrible texting','No humor']},
+  {id:'s37',lvl:4,fmt:'mc',label:'What makes you feel most desired?',options:['Being stared at','Private compliments','Being touched first','A little jealousy']},
+  {id:'s38',lvl:4,fmt:'mc',label:'Right after sex you…',options:['Cuddle','Talk','Snack run','Sleep instantly']},
+  {id:'s39',lvl:4,fmt:'mc',label:'The wildest place you’d actually do it?',options:['Car','Beach','Office','A party — somewhere upstairs']},
+  {id:'s40',lvl:4,fmt:'mc',label:'Your kissing style?',options:['Soft & slow','Intense','Playful, with bites','Depends who’s asking']},
+  {id:'s41',lvl:4,fmt:'mc',label:'A fantasy you’d actually try?',options:['Role play','Somewhere semi-public','Being tied up','A threesome']},
+  {id:'s42',lvl:4,fmt:'mc',label:'What do you notice first?',options:['Eyes','Smile','Body','Voice']},
+  {id:'s43',lvl:4,fmt:'mc',label:'Your flirting style?',options:['Direct','Teasing','Eye contact champion','I don’t flirt — I panic']},
+  {id:'s44',lvl:4,fmt:'mc',label:'Your bedroom superpower?',options:['My hands','My mouth','My stamina','My creativity']},
+  {id:'s45',lvl:4,fmt:'mc',label:'What kills the mood fastest?',options:['A phone coming out','Bad kissing','Too much talking','Rushing it']},
+  {id:'s46',lvl:4,fmt:'mc',label:'Where do you wish you were kissed more?',options:['Neck','Hands','Forehead','Everywhere but the lips']},
+  {id:'s47',lvl:4,fmt:'mc',label:'An ex would call you… (in bed)',options:['Generous','Wild','Sweet','Unforgettable']},
+  {id:'s48',lvl:4,fmt:'mc',label:'Sexiest thing someone can do fully clothed?',options:['Roll up their sleeves','Dance','Whisper','Be great at what they do']},
+  {id:'s49',lvl:4,fmt:'mc',label:'How do you show you’re in the mood?',options:['I say it straight','Touch first','Heavy hints','Hope telepathy works']},
+  {id:'s50',lvl:4,fmt:'mc',label:'Your type, really?',options:['Sweet & soft','Confident & bold','Mysterious & distant','Funny & chaotic']},
+  {id:'s51',lvl:4,fmt:'mc',label:'Morning after a one-night stand?',options:['Breakfast together','Quiet exit','Numbers exchanged','Depends how it was']},
+  {id:'s52',lvl:4,fmt:'mc',label:'Your guilty-pleasure crush type?',options:['The bad idea','The older one','The friend’s friend','The one who ignores me']},
+  {id:'s53',lvl:4,fmt:'mc',label:'Underwear philosophy?',options:['Matching sets matter','Comfort only','Depends on tonight’s plans','Chaos drawer']},
+  {id:'s54',lvl:4,fmt:'mc',label:'Dressing to seduce, you’d wear…',options:['Confidence, nothing special','All black','Something unbuttoned','Their shirt']},
+  {id:'s55',lvl:4,fmt:'mc',label:'The hottest compliment?',options:['“You’re beautiful”','“You have no idea what you do to me”','“You’re mine tonight”','Silence — just the look']},
+  {id:'s56',lvl:4,fmt:'slider',label:'Your sex drive lately?',poles:['Hibernating','Insatiable']},
+  {id:'s57',lvl:4,fmt:'slider',label:'How loud are you in bed?',poles:['Silent','The neighbors know']},
+  {id:'s58',lvl:4,fmt:'slider',label:'Your fantasies: how far from vanilla?',poles:['Pretty vanilla','Deep end']},
+  {id:'s59',lvl:4,fmt:'slider',label:'How fast do you catch feelings after sex?',poles:['Never happens','Instantly']},
+  {id:'s60',lvl:4,fmt:'slider',label:'Naked confidence?',poles:['Lights off, please','Full confidence']},
+  {id:'s61',lvl:4,fmt:'slider',label:'Kissing during sex?',poles:['Optional','Essential']},
+  {id:'s62',lvl:4,fmt:'slider',label:'Right after: cuddles or space?',poles:['Give me space','Wrap around me']},
+  {id:'s63',lvl:4,fmt:'slider',label:'How often do you think about sex?',poles:['Rarely','Constantly']},
+  {id:'s64',lvl:4,fmt:'slider',label:'Teasing: how much can you take?',poles:['Get to the point','Tease me forever']},
+  {id:'s65',lvl:4,fmt:'slider',label:'Flirting in public with a partner?',poles:['Keep it private','Anywhere, anytime']},
+  {id:'s66',lvl:4,fmt:'slider',label:'New positions?',poles:['Greatest hits only','Try everything once']},
+  {id:'s67',lvl:4,fmt:'slider',label:'Ever faked it?',poles:['Never','More than I admit']},
+  {id:'s68',lvl:4,fmt:'slider',label:'How much does emotional connection change sex?',poles:['Barely','Completely']},
+  {id:'s69',lvl:4,fmt:'slider',label:'Your sober flirting skills?',poles:['A disaster','Smooth']},
+  {id:'s70',lvl:4,fmt:'slider',label:'Ideal foreplay?',poles:['Skip ahead','It’s half the fun']},
+  {id:'s71',lvl:4,fmt:'slider',label:'Eye contact during sex?',poles:['Too intense','The best part']},
+  {id:'s72',lvl:4,fmt:'slider',label:'Lingerie effort for a big date?',poles:['Whatever’s clean','Full production']},
+  {id:'s73',lvl:4,fmt:'slider',label:'How curious are you about your friends’ sex lives?',poles:['Don’t want to know','Tell me everything']},
+  {id:'s74',lvl:4,fmt:'slider',label:'Sex on the first date?',poles:['Never','If the vibe is right — yes']},
+  {id:'s75',lvl:4,fmt:'slider',label:'How much do you flirt without noticing?',poles:['Never','Apparently constantly']},
+  {id:'s76',lvl:4,fmt:'slider',label:'Could you date someone bad in bed?',poles:['Dealbreaker','We can work on it']},
 ];
 const QBYID=Object.fromEntries(Q.map(q=>[q.id,q]));
 const LEVELS=[{n:1,emoji:'🟢',name:'Warmup'},{n:2,emoji:'🔵',name:'Personal'},{n:3,emoji:'🟣',name:'Deep'},{n:4,emoji:'🔴',name:'Spicy'}];
@@ -297,7 +545,8 @@ async function home(){
     let badge;
     if(d.status==='finished') badge=d.winner===me.id?`<span class="badge won">Won ${myW}-${opW}</span>`:(d.winner?`<span class="badge lost">Lost ${myW}-${opW}</span>`:`<span class="badge draw">Draw ${myW}-${opW}</span>`);
     else{const rs=(byDuel[d.id]||[]).sort((a,b)=>b.round_no-a.round_no),cur=rs[0];const myR=meA?'a':'b';
-      const turn=cur?roundStage(cur).turn:myR;
+      let turn=cur?roundStage(cur).turn:myR;
+      if(cur&&turn==null)turn=starterRole(cur.round_no+1); // round resolved, next not created yet → next starter acts
       badge=turn===myR?'<span class="badge turn">Your turn</span>':'<span class="badge wait">Waiting</span>';}
     return `<div class="duel-row" onclick="openDuel('${d.id}')"><div class="av">${esc(initial(opName))}</div>
       <div class="meta"><div class="t">${esc(opName)}</div><div class="s">${myW}–${opW} · first to ${WIN_TARGET}</div></div>${badge}</div>`;
@@ -317,12 +566,12 @@ async function challengeScreen(){
   all.forEach(d=>{const meA=d.a===me.id,oid=meA?d.b:d.a,oname=meA?d.b_name:d.a_name;if(seen.has(oid))return;seen.add(oid);
     let w=0,l=0;all.forEach(x=>{const xa=x.a===me.id,xoid=xa?x.b:x.a;if(xoid!==oid||x.status!=='finished')return;if(x.winner===me.id)w++;else if(x.winner)l++;});
     recentOpps.push({id:oid,name:oname,w,l});});
-  const link=baseUrl()+'#play='+encodeURIComponent(me.username);
   const oppHtml=recentOpps.length?recentOpps.map((o,i)=>`<div class="duel-row" onclick="challengeOpponent(${i})"><div class="av">${esc(initial(o.name))}</div>
     <div class="meta"><div class="t">${esc(o.name)}</div><div class="s">${o.w}–${o.l} all-time</div></div><span class="badge turn">Duel ⚔️</span></div>`).join('')
     :'<p class="sub">No opponents yet — find someone by username below.</p>';
   const linkSection = `<p class="sub" style="margin-bottom:10px">Answer 3 questions about yourself. Friends open your link, answer the same 3 and guess yours — that's round 1 of your duel.</p><button class="btn secondary" onclick="setupLink()">Answer 3 &amp; get my link →</button>`;
   screen.innerHTML=`<div class="mt"><h2>Challenge a friend</h2></div>
+    <label class="spicy-row"><input type="checkbox" id="spicyTog" checked> <span>Include 🔴 Spicy questions <span style="color:var(--muted)">(they show up from round 3)</span></span></label>
     <div class="section-t">Recent opponents — tap to duel</div><div>${oppHtml}</div>
     <div class="section-t">Find someone by username</div>
     <input class="field" id="usearch" placeholder="Type a username…" oninput="searchUsers(this.value)" autocomplete="off">
@@ -330,7 +579,6 @@ async function challengeScreen(){
     <div class="section-t">Invite someone new (your link)</div>
     ${linkSection}
     <div class="footer-btn"><button class="btn ghost" onclick="goHome()">← Back</button></div>`;
-  const sbx=document.getElementById('shareBtn'); if(sbx) sbx.onclick=()=>shareLink(link);
 }
 function shareLink(link){const msg='Think you know me? Duel me on DeepQuiz 👀 '+link;if(navigator.share)navigator.share({title:'DeepQuiz',text:'Think you know me? 👀',url:link}).catch(()=>{});else copyText(msg);}
 let USEARCH=[],_searchT=null,SU=null;
@@ -345,10 +593,11 @@ async function searchUsers(term){
     box2.innerHTML=USEARCH.length?USEARCH.map((u,i)=>`<div class="duel-row" onclick="challengeByProfile(${i})"><div class="av">${esc(initial(u.username))}</div><div class="meta"><div class="t">${esc(u.username)}</div></div><span class="badge turn">Duel ⚔️</span></div>`).join(''):'<p class="sub">No one found with that name.</p>';
   },250);
 }
-async function challengeByProfile(i){const u=USEARCH[i];if(!u)return;spin();
+async function challengeByProfile(i){const u=USEARCH[i];if(!u)return;
+  const t=document.getElementById('spicyTog'),spicy=t?t.checked:true;spin();
   const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${u.id}),and(a.eq.${u.id},b.eq.${me.id})`).eq('status','active').maybeSingle();
-  if(ex)return openDuel(ex.id);await createDuelWith(u);}
-function setupLink(){const ids=shuffle(Q.filter(q=>q.lvl<=3).map(q=>q.id)).slice(0,ROUND_Q);SU={ids,idx:0,answers:[]};suRender();}
+  if(ex)return openDuel(ex.id);await createDuelWith(u,spicy);}
+function setupLink(){const ids=shuffle(Q.filter(q=>q.lvl<=2).map(q=>q.id)).slice(0,ROUND_Q);SU={ids,idx:0,answers:[]};suRender();} // link = round 1 → warmup/personal only
 function suRender(){const q=QBYID[SU.ids[SU.idx]],meta=lvlMeta(q.lvl);$top.textContent=`Your challenge · ${SU.idx+1}/${SU.ids.length}`;
   const prog=SU.ids.map((_,i)=>`<span class="${i<SU.idx?'done':i===SU.idx?'cur':''}"></span>`).join('');
   screen.innerHTML=`<div class="prog">${prog}</div><div class="qhead"><span class="pill l${q.lvl}">${meta.emoji} ${meta.name}</span></div>
@@ -362,25 +611,32 @@ function linkReady(){const link=baseUrl()+'#c='+enc({id:me.id,n:me.username,q:SU
     <div class="linkbox mt">${esc(link)}</div>
     <div class="footer-btn stack"><button class="btn" id="shareBtn2">Share link</button><button class="btn ghost" onclick="goHome()">Done</button></div>`;
   document.getElementById('shareBtn2').onclick=()=>shareLink(link);}
-const cerr=m=>{const e=document.getElementById('cerr');if(e)e.textContent=m||'';};
-async function challengeOpponent(i){const o=recentOpps[i];if(!o)return;spin();
+async function challengeOpponent(i){const o=recentOpps[i];if(!o)return;
+  const t=document.getElementById('spicyTog'),spicy=t?t.checked:true;spin();
   const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${o.id}),and(a.eq.${o.id},b.eq.${me.id})`).eq('status','active').maybeSingle();
-  if(ex)return openDuel(ex.id);await createDuelWith({id:o.id,username:o.name});}
-async function doChallenge(){
-  const name=val('oppname');cerr('');
-  if(!name)return cerr('Enter a username.');
-  if(name.toLowerCase()===me.username.toLowerCase())return cerr("You can't duel yourself 🙂");
-  busy('chBtn',true);
-  const {data:opp}=await sb.from('profiles').select('id,username').ilike('username',name).maybeSingle();
-  if(!opp){busy('chBtn',false);return cerr('No user with that username.');}
-  const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${opp.id}),and(a.eq.${opp.id},b.eq.${me.id})`).eq('status','active').maybeSingle();
-  if(ex)return openDuel(ex.id);
-  await createDuelWith(opp);
+  if(ex)return openDuel(ex.id);await createDuelWith({id:o.id,username:o.name},spicy);}
+// Escalation: round 1 = 🟢/🔵 only, round 2 = up to 🟣, round 3+ = everything (🔴 only if the duel allows spicy).
+// `used` = questions this pair has already had in ANY duel together (no repeats across rematches).
+function pickPool(roundNo,used,spicyOk){
+  const cap=roundNo<=1?2:roundNo<=2?3:4, ok=q=>spicyOk||q.lvl<4;
+  let pool=Q.filter(q=>ok(q)&&q.lvl<=cap&&!used.has(q.id));
+  if(pool.length<ROUND_Q)pool=Q.filter(q=>ok(q)&&!used.has(q.id)); // relax level cap
+  if(pool.length<ROUND_Q)pool=Q.filter(ok);                        // last resort: allow repeats
+  return pool.map(q=>q.id);
 }
-async function createDuelWith(opp){
-  const {data:duel,error}=await sb.from('duels').insert({a:me.id,b:opp.id,a_name:me.username,b_name:opp.username}).select().single();
+async function usedQuestionsBetween(x,y){
+  const {data:ds}=await sb.from('duels').select('id').or(`and(a.eq.${x},b.eq.${y}),and(a.eq.${y},b.eq.${x})`);
+  const ids=(ds||[]).map(d=>d.id);if(!ids.length)return new Set();
+  const {data:rs}=await sb.from('rounds').select('question_ids').in('duel_id',ids);
+  return new Set((rs||[]).flatMap(r=>r.question_ids||[]));
+}
+async function createDuelWith(opp,spicy){
+  if(spicy==null){const t=document.getElementById('spicyTog');spicy=t?t.checked:true;}
+  let {data:duel,error}=await sb.from('duels').insert({a:me.id,b:opp.id,a_name:me.username,b_name:opp.username,spicy}).select().single();
+  if(error)({data:duel,error}=await sb.from('duels').insert({a:me.id,b:opp.id,a_name:me.username,b_name:opp.username}).select().single()); // pre-v4 schema fallback
   if(error){toast('Could not start duel');return challengeScreen();}
-  const picked=shuffle(Q.map(q=>q.id)).slice(0,ROUND_Q).sort((x,y)=>QBYID[x].lvl-QBYID[y].lvl);
+  const used=await usedQuestionsBetween(me.id,opp.id);
+  const picked=shuffle(pickPool(1,used,spicy)).slice(0,ROUND_Q).sort((x,y)=>QBYID[x].lvl-QBYID[y].lvl);
   const {error:rErr}=await sb.from('rounds').insert({duel_id:duel.id,round_no:1,question_ids:picked});
   if(rErr){await sb.from('duels').delete().eq('id',duel.id);toast('Could not start duel');return challengeScreen();}
   openDuel(duel.id);
@@ -415,8 +671,8 @@ function gpRender(){
   const bar=self?`<div class="modebar self">✍️ ABOUT YOU</div>`:`<div class="modebar guess">🎯 GUESS ${esc(GP.ch.n.toUpperCase())}</div>`;
   const chip=self?'':`<div class="yourchip">🫵 You said: <b>${esc(answerText(q,GP.selfA[GP.idx]))}</b></div>`;
   const who=self?'Answer honestly about yourself:':`How did <b>${esc(GP.ch.n)}</b> answer this?`;
-  screen.innerHTML=`<div class="qhead"><span class="pill l${q.lvl}">${meta.emoji} ${meta.name}</span></div>
-    ${bar}${chip}<div class="who">${who}</div><div class="qtext">${esc(q.label)}</div>
+  screen.innerHTML=`${bar}<div class="qhead"><span class="pill l${q.lvl}">${meta.emoji} ${meta.name}</span></div>
+    ${chip}<div class="who">${who}</div><div class="qtext">${esc(q.label)}</div>
     <div id="body">${inputHTML(q,self?'gpself':'gpguess')}</div>`;
 }
 function gpSelf(v){GP.selfA[GP.idx]=v;GP.phase='guess';gpRender();}
@@ -489,7 +745,9 @@ async function openDuel(id){
     let justResolved=false;
     if(cur.a_correct==null){await computeResolve(cur);justResolved=true;}
     if(D.status==='finished')return duelResult();
-    if(justResolved){playRound=cur;return roundResult(cur);}
+    // Show the result screen if this player hasn't seen this round's outcome yet
+    const seen=+localStorage.getItem('dq_seen_'+D.id+'_'+me.id)||0;
+    if(justResolved||seen<cur.round_no){playRound=cur;return roundResult(cur);}
     const nxt=await createNextRound();if(!nxt){await finishByWins();return duelResult();}
     RND.push(nxt);cur=nxt;
   }
@@ -509,13 +767,15 @@ function matchScreen(cur){
     const hint=st.stage==='s_self'?'Answer 3 questions about yourself — then it’s their turn.':st.stage==='s_guess'?`${esc(oppName)} has played. Guess their answers to win the round.`:`Answer about yourself and guess ${esc(oppName)} — with instant feedback.`;
     action=`<p class="hint" style="margin-bottom:10px">${hint}</p><button class="btn" onclick="dgStart()">${label} →</button>`;
   } else {
-    action=`<div class="center sub" style="margin:14px 0">⏳ Waiting for <b style="color:var(--text)">${esc(oppName)}</b> to take their turn on round ${cur.round_no}.</div><button class="btn ghost" onclick="goHome()">← My duels</button>`;
+    action=`<div class="center sub" style="margin:14px 0">⏳ Waiting for <b style="color:var(--text)">${esc(oppName)}</b> to take their turn on round ${cur.round_no}.</div>
+      <button class="btn secondary" onclick="nudge()">📣 Nudge ${esc(oppName)}</button><button class="btn ghost" onclick="goHome()">← My duels</button>`;
   }
   screen.innerHTML=`<div class="mt"><h2>You vs ${esc(oppName)}</h2></div>${duelHeader()}
     ${resolved.length?`<div class="section-t">Rounds so far</div>${rows}`:''}
     <div class="footer-btn stack">${action}</div>`;
 }
 function viewRound(n){const r=RND.find(x=>x.round_no===n);if(!r)return;
+  markSeen(n);
   const myC=myRole==='a'?r.a_correct:r.b_correct,opC=myRole==='a'?r.b_correct:r.a_correct;
   const iWon=r.winner===me.id,tie=!r.winner;$top.textContent=`Round ${n}`;
   screen.innerHTML=`<div class="center mt"><h2>Round ${n} — ${tie?'tied':iWon?'you won':esc(oppName)+' won'}</h2>
@@ -569,6 +829,7 @@ async function dgSubmit(){
   // round's winner can never be flipped and a turn can't be played twice.
   const lock=DG.mode==='self_only'?myRole+'_self':myRole+'_guesses';
   await sb.from('rounds').update(patch).eq('id',r.id).is(lock,null);
+  await sb.from('duels').update({updated_at:new Date().toISOString()}).eq('id',D.id); // bump so "your turn" duels sort to the top
   if(DG.mode!=='guess_only'){const ups=r.question_ids.map((qid,i)=>({user_id:me.id,question_id:qid,answer:DG.selfA[i]}));await sb.from('self_answers').upsert(ups);ups.forEach(u=>me.answered&&me.answered.add(u.question_id));}
   const {data:fresh}=await sb.from('rounds').select('*').eq('id',r.id).maybeSingle();
   if(!fresh){toast('Could not save — try again');return openDuel(D.id);}
@@ -596,7 +857,10 @@ function roundRevealHtml(r){
       <div class="line"><span>${ic1} You: <b>${esc(answerText(q,myG[i]))}</b></span><span>${esc(oppName)} said <b>${esc(answerText(q,opSelf[i]))}</b></span></div>
       <div class="line" style="margin-top:4px"><span>${ic2} ${esc(oppName)} guessed <b>${esc(answerText(q,opG[i]))}</b></span><span>You said <b>${esc(answerText(q,mySelf[i]))}</b></span></div></div>`;}).join('');
 }
+function markSeen(n){try{const k='dq_seen_'+D.id+'_'+me.id;if((+localStorage.getItem(k)||0)<n)localStorage.setItem(k,n);}catch(e){}}
+function nudge(){const msg=`It’s your turn in our DeepQuiz duel 👀 ${baseUrl()}`;if(navigator.share)navigator.share({text:msg}).catch(()=>{});else window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');}
 function roundResult(r){
+  markSeen(r.round_no);
   const myC=myRole==='a'?r.a_correct:r.b_correct,opC=myRole==='a'?r.b_correct:r.a_correct;
   const iWon=r.winner===me.id,tie=!r.winner;$top.textContent=`Round ${r.round_no}`;
   const finished=D.status==='finished';
@@ -610,14 +874,15 @@ function duelWaiting(r){
   $top.textContent=`Round ${r.round_no}`;
   screen.innerHTML=`<div class="mt2 center"><div class="big-emoji">⏳</div><h2>Your move is in!</h2>
     <p class="sub mt">Now it's <b style="color:var(--text)">${esc(oppName)}</b>'s turn for round ${r.round_no}. You'll see the result once they play.</p></div>
-    ${duelHeader()}<div class="footer-btn"><button class="btn" onclick="goHome()">Back to my duels →</button></div>`;
+    ${duelHeader()}<div class="footer-btn stack"><button class="btn" onclick="nudge()">📣 Nudge ${esc(oppName)}</button><button class="btn ghost" onclick="goHome()">Back to my duels →</button></div>`;
 }
 async function createNextRound(){
   if(D.wins_a>=WIN_TARGET||D.wins_b>=WIN_TARGET)return null;
-  const used=RND.flatMap(r=>r.question_ids);
-  const pool=Q.map(q=>q.id).filter(id=>!used.includes(id));
-  if(pool.length<ROUND_Q)return null;
   const roundNo=RND.length+1;
+  const used=await usedQuestionsBetween(D.a,D.b);
+  RND.forEach(r=>(r.question_ids||[]).forEach(id=>used.add(id)));
+  const pool=pickPool(roundNo,used,D.spicy!==false);
+  if(pool.length<ROUND_Q)return null;
   const {data:exist}=await sb.from('rounds').select('*').eq('duel_id',D.id).eq('round_no',roundNo).maybeSingle();
   if(exist)return exist;
   const picked=shuffle(pool).slice(0,ROUND_Q).sort((x,y)=>QBYID[x].lvl-QBYID[y].lvl);
@@ -640,7 +905,7 @@ async function duelResult(){
     <div class="footer-btn stack"><button class="btn" onclick="rematch()">Rematch ${esc(oppName)} →</button>
       <button class="btn ghost" onclick="goHome()">← My duels</button></div>`;
 }
-async function rematch(){const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${oppId}),and(a.eq.${oppId},b.eq.${me.id})`).eq('status','active').maybeSingle();if(ex)return openDuel(ex.id);await createDuelWith({id:oppId,username:oppName});}
+async function rematch(){const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${oppId}),and(a.eq.${oppId},b.eq.${me.id})`).eq('status','active').maybeSingle();if(ex)return openDuel(ex.id);await createDuelWith({id:oppId,username:oppName},D.spicy!==false);}
 
 // ---------- LEADERBOARD ----------
 async function leaderboard(){
@@ -664,7 +929,8 @@ function inputHTML(q,h){
   if(q.fmt==='binary')return `<div class="binary">${q.options.map((o,i)=>`<button class="opt" data-i="${i}" onclick="onPick('${h}',${i})">${esc(o)}</button>`).join('')}</div>`;
   if(q.fmt==='mc')return `<div class="options">${q.options.map((o,i)=>`<button class="opt" data-i="${i}" onclick="onPick('${h}',${i})">${esc(o)}</button>`).join('')}</div>`;
   return `<div class="slider-wrap"><div class="slider-labels"><span>${esc(q.poles[0])}</span><span>${esc(q.poles[1])}</span></div>
-    <input type="range" min="0" max="100" value="50" id="sld"></div>
+    <input type="range" min="0" max="100" value="50" id="sld" oninput="document.getElementById('sldv').textContent=this.value"></div>
+    <div class="slider-val" id="sldv">50</div>
     <button class="btn mt" onclick="onSlider('${h}')">Continue →</button>`;
 }
 function onPick(h,i){if(h==='gpself')gpSelf(i);else if(h==='gpguess')gpGuess(i);else if(h==='dgself')dgSelf(i);else if(h==='dgguess')dgGuess(i);else if(h==='su')suAnswer(i);}
