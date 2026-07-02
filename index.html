@@ -719,6 +719,9 @@ function starterRole(roundNo){return 'a';}
 // wins, "Continue" loops). canonRounds() collapses duplicates on read: per round_no keep
 // the most-filled row (ties: oldest). schema_v5 adds the unique index + cleans old dupes.
 function fillScore(r){return (r.a_self?1:0)+(r.b_self?1:0)+(r.a_guesses?1:0)+(r.b_guesses?1:0)+(r.a_correct!=null?1:0);}
+// Display number = position in this duel (1..N). Raw round_no can have gaps in old duels
+// (the historical duplicate bug skipped numbers); internally we keep raw round_no.
+function dispNo(r){const i=RND.findIndex(x=>x.round_no===r.round_no);return i>=0?i+1:r.round_no;}
 function canonRounds(rows){
   const by={};
   (rows||[]).forEach(r=>{const k=r.round_no,c=by[k];
@@ -774,15 +777,15 @@ function matchScreen(cur){
   const resolved=RND.filter(r=>r.a_correct!=null);
   const rows=resolved.map(r=>{const myC=myRole==='a'?r.a_correct:r.b_correct,opC=myRole==='a'?r.b_correct:r.a_correct;
     const ic=r.winner===me.id?'🟢':r.winner?'🔴':'🤝';
-    return `<div class="duel-row" onclick="viewRound(${r.round_no})"><div class="meta"><div class="t">Round ${r.round_no} ${ic}</div><div class="s">You ${myC} – ${opC} ${esc(oppName)}</div></div><span class="badge wait">View ›</span></div>`;}).join('');
+    return `<div class="duel-row" onclick="viewRound(${r.round_no})"><div class="meta"><div class="t">Round ${dispNo(r)} ${ic}</div><div class="s">You ${myC} – ${opC} ${esc(oppName)}</div></div><span class="badge wait">View ›</span></div>`;}).join('');
   const st=roundStage(cur), myTurn=st.turn===myRole;
   let action;
   if(myTurn){
-    const label=st.stage==='s_guess'?`Guess ${esc(oppName)}`:st.stage==='s_self'?(cur.round_no===1?'Start round 1':`Answer 3 for round ${cur.round_no}`):`Play round ${cur.round_no}`;
+    const label=st.stage==='s_guess'?`Guess ${esc(oppName)}`:st.stage==='s_self'?(dispNo(cur)===1?'Start round 1':`Answer 3 for round ${dispNo(cur)}`):`Play round ${dispNo(cur)}`;
     const hint=st.stage==='s_self'?`Answer 3 questions about yourself — then ${esc(oppName)} plays.`:st.stage==='s_guess'?`${esc(oppName)} has played. Guess their answers to win the round.`:`Answer about yourself and guess ${esc(oppName)} — with instant feedback.`;
     action=`<p class="hint" style="margin-bottom:10px">${hint}</p><button class="btn" onclick="dgStart()">${label} →</button>`;
   } else {
-    action=`<div class="center sub" style="margin:14px 0">⏳ Waiting for <b style="color:var(--text)">${esc(oppName)}</b> to take their turn on round ${cur.round_no}.</div>
+    action=`<div class="center sub" style="margin:14px 0">⏳ Waiting for <b style="color:var(--text)">${esc(oppName)}</b> to take their turn on round ${dispNo(cur)}.</div>
       <button class="btn secondary" onclick="nudge()">📣 Nudge ${esc(oppName)}</button><button class="btn ghost" onclick="goHome()">← My duels</button>`;
   }
   screen.innerHTML=`<div class="mt"><h2>You vs ${esc(oppName)}</h2></div>${duelHeader()}
@@ -792,8 +795,8 @@ function matchScreen(cur){
 function viewRound(n){const r=RND.find(x=>x.round_no===n);if(!r)return;
   markSeen(n);
   const myC=myRole==='a'?r.a_correct:r.b_correct,opC=myRole==='a'?r.b_correct:r.a_correct;
-  const iWon=r.winner===me.id,tie=!r.winner;$top.textContent=`Round ${n}`;
-  screen.innerHTML=`<div class="center mt"><h2>Round ${n} — ${tie?'tied':iWon?'you won':esc(oppName)+' won'}</h2>
+  const iWon=r.winner===me.id,tie=!r.winner;$top.textContent=`Round ${dispNo(r)}`;
+  screen.innerHTML=`<div class="center mt"><h2>Round ${dispNo(r)} — ${tie?'tied':iWon?'you won':esc(oppName)+' won'}</h2>
     <p class="sub">You ${myC} · ${esc(oppName)} ${opC}</p></div>
     <div class="section-t">Answers</div>${roundRevealHtml(r)}
     <div class="footer-btn"><button class="btn ghost" onclick="openDuel('${D.id}')">← Back to duel</button></div>`;}
@@ -810,7 +813,7 @@ function dgStart(){
 }
 function dgRender(){
   const r=DG.round,q=QBYID[r.question_ids[DG.idx]],meta=lvlMeta(q.lvl);
-  $top.textContent=`Round ${r.round_no} · ${DG.idx+1}/${ROUND_Q}`;
+  $top.textContent=`Round ${dispNo(r)} · ${DG.idx+1}/${ROUND_Q}`;
   if(DG.fb){
     screen.innerHTML=`${duelHeader()}${fbHTML(q,DG.fb.guess,DG.fb.actual,oppName)}
       <div class="footer-btn"><button class="btn" onclick="dgFbNext()">${DG.idx<ROUND_Q-1?'Next question →':'See round result →'}</button></div>`;
@@ -854,7 +857,10 @@ async function dgSubmit(){
 async function computeResolve(r){
   let ac=0,bc=0;r.question_ids.forEach((qid,i)=>{ac+=scoreOne(QBYID[qid],r.a_guesses[i],r.b_self[i]);bc+=scoreOne(QBYID[qid],r.b_guesses[i],r.a_self[i]);});
   const winnerId=ac>bc?D.a:bc>ac?D.b:null;
-  await sb.from('rounds').update({a_correct:ac,b_correct:bc,winner:winnerId}).eq('id',r.id);
+  // never swallow this write: if it fails the round is never persisted and the
+  // result screen would loop forever (this bit us with 0.5 scores vs int columns)
+  const {error:resErr}=await sb.from('rounds').update({a_correct:ac,b_correct:bc,winner:winnerId}).eq('id',r.id);
+  if(resErr)toast('Could not save the result — please reload and try again');
   r.a_correct=ac;r.b_correct=bc;r.winner=winnerId;
   const {data:allR}=await sb.from('rounds').select('*').eq('duel_id',D.id);
   let wa=0,wb=0;canonRounds(allR).forEach(x=>{if(x.winner===D.a)wa++;else if(x.winner===D.b)wb++;});
@@ -881,7 +887,7 @@ function nudge(){const msg=`It’s your turn in our DeepQuiz duel 👀 ${baseUrl
 function roundResult(r){
   markSeen(r.round_no);
   const myC=myRole==='a'?r.a_correct:r.b_correct,opC=myRole==='a'?r.b_correct:r.a_correct;
-  const iWon=r.winner===me.id,tie=!r.winner;$top.textContent=`Round ${r.round_no}`;
+  const iWon=r.winner===me.id,tie=!r.winner;$top.textContent=`Round ${dispNo(r)}`;
   const finished=D.status==='finished';
   screen.innerHTML=`<div class="center mt"><div class="big-emoji">${tie?'🤝':iWon?'🎉':'😬'}</div>
     <h2>${tie?'Round tied':iWon?'You win the round!':esc(oppName)+' wins the round'}</h2>
@@ -890,9 +896,9 @@ function roundResult(r){
     <div class="footer-btn">${finished?`<button class="btn" onclick="duelResult()">See final result →</button>`:`<button class="btn" onclick="openDuel('${D.id}')">Continue →</button>`}</div>`;
 }
 function duelWaiting(r){
-  $top.textContent=`Round ${r.round_no}`;
+  $top.textContent=`Round ${dispNo(r)}`;
   screen.innerHTML=`<div class="mt2 center"><div class="big-emoji">⏳</div><h2>Your move is in!</h2>
-    <p class="sub mt">Now it's <b style="color:var(--text)">${esc(oppName)}</b>'s turn for round ${r.round_no}. You'll see the result once they play.</p></div>
+    <p class="sub mt">Now it's <b style="color:var(--text)">${esc(oppName)}</b>'s turn for round ${dispNo(r)}. You'll see the result once they play.</p></div>
     ${duelHeader()}<div class="footer-btn stack"><button class="btn" onclick="nudge()">📣 Nudge ${esc(oppName)}</button><button class="btn ghost" onclick="goHome()">Back to my duels →</button></div>`;
 }
 async function createNextRound(){
