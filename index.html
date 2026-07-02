@@ -538,13 +538,13 @@ async function home(){
   const list=duels||[];
   const activeIds=list.filter(d=>d.status==='active').map(d=>d.id);
   let byDuel={};
-  if(activeIds.length){const {data:rs}=await sb.from('rounds').select('duel_id,round_no,question_ids,a_self,b_self,a_guesses,b_guesses').in('duel_id',activeIds);
+  if(activeIds.length){const {data:rs}=await sb.from('rounds').select('duel_id,round_no,question_ids,a_self,b_self,a_guesses,b_guesses,a_correct,created_at').in('duel_id',activeIds);
     (rs||[]).forEach(r=>{(byDuel[r.duel_id]=byDuel[r.duel_id]||[]).push(r);});}
   const rows=list.length?list.map(d=>{
     const meA=d.a===me.id, opName=meA?d.b_name:d.a_name, myW=meA?d.wins_a:d.wins_b, opW=meA?d.wins_b:d.wins_a;
     let badge;
     if(d.status==='finished') badge=d.winner===me.id?`<span class="badge won">Won ${myW}-${opW}</span>`:(d.winner?`<span class="badge lost">Lost ${myW}-${opW}</span>`:`<span class="badge draw">Draw ${myW}-${opW}</span>`);
-    else{const rs=(byDuel[d.id]||[]).sort((a,b)=>b.round_no-a.round_no),cur=rs[0];const myR=meA?'a':'b';
+    else{const rs=canonRounds(byDuel[d.id]||[]),cur=rs[rs.length-1];const myR=meA?'a':'b';
       let turn=cur?roundStage(cur).turn:myR;
       if(cur&&turn==null)turn=starterRole(cur.round_no+1); // round resolved, next not created yet → next starter acts
       badge=turn===myR?'<span class="badge turn">Your turn</span>':'<span class="badge wait">Waiting</span>';}
@@ -595,8 +595,8 @@ async function searchUsers(term){
 }
 async function challengeByProfile(i){const u=USEARCH[i];if(!u)return;
   const t=document.getElementById('spicyTog'),spicy=t?t.checked:true;spin();
-  const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${u.id}),and(a.eq.${u.id},b.eq.${me.id})`).eq('status','active').maybeSingle();
-  if(ex)return openDuel(ex.id);await createDuelWith(u,spicy);}
+  const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${u.id}),and(a.eq.${u.id},b.eq.${me.id})`).eq('status','active').order('updated_at',{ascending:false}).limit(1);
+  if(ex&&ex.length)return openDuel(ex[0].id);await createDuelWith(u,spicy);}
 function setupLink(){const ids=shuffle(Q.filter(q=>q.lvl<=2).map(q=>q.id)).slice(0,ROUND_Q);SU={ids,idx:0,answers:[]};suRender();} // link = round 1 → warmup/personal only
 function suRender(){const q=QBYID[SU.ids[SU.idx]],meta=lvlMeta(q.lvl);$top.textContent=`Your challenge · ${SU.idx+1}/${SU.ids.length}`;
   const prog=SU.ids.map((_,i)=>`<span class="${i<SU.idx?'done':i===SU.idx?'cur':''}"></span>`).join('');
@@ -613,8 +613,8 @@ function linkReady(){const link=baseUrl()+'#c='+enc({id:me.id,n:me.username,q:SU
   document.getElementById('shareBtn2').onclick=()=>shareLink(link);}
 async function challengeOpponent(i){const o=recentOpps[i];if(!o)return;
   const t=document.getElementById('spicyTog'),spicy=t?t.checked:true;spin();
-  const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${o.id}),and(a.eq.${o.id},b.eq.${me.id})`).eq('status','active').maybeSingle();
-  if(ex)return openDuel(ex.id);await createDuelWith({id:o.id,username:o.name},spicy);}
+  const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${o.id}),and(a.eq.${o.id},b.eq.${me.id})`).eq('status','active').order('updated_at',{ascending:false}).limit(1);
+  if(ex&&ex.length)return openDuel(ex[0].id);await createDuelWith({id:o.id,username:o.name},spicy);}
 // Escalation: round 1 = 🟢/🔵 only, round 2 = up to 🟣, round 3+ = everything (🔴 only if the duel allows spicy).
 // `used` = questions this pair has already had in ANY duel together (no repeats across rematches).
 function pickPool(roundNo,used,spicyOk){
@@ -645,8 +645,8 @@ async function routeChallenge(ch){
   if(me&&me.username){
     if(ch.id===me.id){toast("That's your own link 🙂");return goHome();}
     spin();
-    const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${ch.id}),and(a.eq.${ch.id},b.eq.${me.id})`).eq('status','active').maybeSingle();
-    if(ex)return openDuel(ex.id);
+    const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${ch.id}),and(a.eq.${ch.id},b.eq.${me.id})`).eq('status','active').order('updated_at',{ascending:false}).limit(1);
+    if(ex&&ex.length)return openDuel(ex[0].id);
   }
   guestPlay(ch);
 }
@@ -714,6 +714,17 @@ async function finalizeChallenge(){
 // the stage machine below is purely fill-state-driven (worst case, one old even round takes
 // one extra sitting while a catches up on their self answers).
 function starterRole(roundNo){return 'a';}
+// The DB had no unique index on (duel_id, round_no), so a race between both players'
+// clients could create DUPLICATE rows for the same round (→ stuck duels, double-counted
+// wins, "Continue" loops). canonRounds() collapses duplicates on read: per round_no keep
+// the most-filled row (ties: oldest). schema_v5 adds the unique index + cleans old dupes.
+function fillScore(r){return (r.a_self?1:0)+(r.b_self?1:0)+(r.a_guesses?1:0)+(r.b_guesses?1:0)+(r.a_correct!=null?1:0);}
+function canonRounds(rows){
+  const by={};
+  (rows||[]).forEach(r=>{const k=r.round_no,c=by[k];
+    if(!c||fillScore(r)>fillScore(c)||(fillScore(r)===fillScore(c)&&String(r.created_at||'')<String(c.created_at||'')))by[k]=r;});
+  return Object.values(by).sort((x,y)=>x.round_no-y.round_no);
+}
 function roundStage(r){
   const S=starterRole(r.round_no), T=S==='a'?'b':'a';
   const full=x=>x!=null&&x.length===r.question_ids.length;
@@ -742,7 +753,7 @@ async function openDuel(id){
   if(!duel){toast('Duel not found');return goHome();}
   D=duel;myRole=D.a===me.id?'a':'b';oppId=myRole==='a'?D.b:D.a;oppName=myRole==='a'?D.b_name:D.a_name;
   let {data:rounds}=await sb.from('rounds').select('*').eq('duel_id',id).order('round_no');
-  RND=rounds||[];
+  RND=canonRounds(rounds);
   if(D.status!=='finished'&&(D.wins_a>=WIN_TARGET||D.wins_b>=WIN_TARGET)){await finishByWins();return duelResult();}
   if(D.status==='finished')return duelResult();
   let cur=RND[RND.length-1];
@@ -751,8 +762,7 @@ async function openDuel(id){
     if(cur.a_correct==null){await computeResolve(cur);justResolved=true;}
     if(D.status==='finished')return duelResult();
     // Show the result screen if this player hasn't seen this round's outcome yet
-    const seen=+localStorage.getItem('dq_seen_'+D.id+'_'+me.id)||0;
-    if(justResolved||seen<cur.round_no){playRound=cur;return roundResult(cur);}
+    if(justResolved||seenNo()<cur.round_no){playRound=cur;return roundResult(cur);}
     const nxt=await createNextRound();if(!nxt){await finishByWins();return duelResult();}
     RND.push(nxt);cur=nxt;
   }
@@ -846,8 +856,8 @@ async function computeResolve(r){
   const winnerId=ac>bc?D.a:bc>ac?D.b:null;
   await sb.from('rounds').update({a_correct:ac,b_correct:bc,winner:winnerId}).eq('id',r.id);
   r.a_correct=ac;r.b_correct=bc;r.winner=winnerId;
-  const {data:allR}=await sb.from('rounds').select('winner').eq('duel_id',D.id);
-  let wa=0,wb=0;(allR||[]).forEach(x=>{if(x.winner===D.a)wa++;else if(x.winner===D.b)wb++;});
+  const {data:allR}=await sb.from('rounds').select('*').eq('duel_id',D.id);
+  let wa=0,wb=0;canonRounds(allR).forEach(x=>{if(x.winner===D.a)wa++;else if(x.winner===D.b)wb++;});
   let patch={wins_a:wa,wins_b:wb,updated_at:new Date().toISOString()};
   if(wa>=WIN_TARGET||wb>=WIN_TARGET){patch.status='finished';patch.winner=wa>wb?D.a:D.b;}
   await sb.from('duels').update(patch).eq('id',D.id);D={...D,...patch};
@@ -862,7 +872,11 @@ function roundRevealHtml(r){
       <div class="line"><span>${ic1} You: <b>${esc(answerText(q,myG[i]))}</b></span><span>${esc(oppName)} said <b>${esc(answerText(q,opSelf[i]))}</b></span></div>
       <div class="line" style="margin-top:4px"><span>${ic2} ${esc(oppName)} guessed <b>${esc(answerText(q,opG[i]))}</b></span><span>You said <b>${esc(answerText(q,mySelf[i]))}</b></span></div></div>`;}).join('');
 }
-function markSeen(n){try{const k='dq_seen_'+D.id+'_'+me.id;if((+localStorage.getItem(k)||0)<n)localStorage.setItem(k,n);}catch(e){}}
+// seen-tracking with in-memory fallback: if localStorage is unavailable (e.g. private
+// browsing), the session memory still breaks the "Continue shows the same result" loop.
+window._seen=window._seen||{};
+function seenNo(){const k='dq_seen_'+D.id+'_'+me.id;let v=window._seen[k]||0;try{v=Math.max(v,+localStorage.getItem(k)||0);}catch(e){}return v;}
+function markSeen(n){const k='dq_seen_'+D.id+'_'+me.id;window._seen[k]=Math.max(window._seen[k]||0,n);try{if((+localStorage.getItem(k)||0)<n)localStorage.setItem(k,n);}catch(e){}}
 function nudge(){const msg=`It’s your turn in our DeepQuiz duel 👀 ${baseUrl()}`;if(navigator.share)navigator.share({text:msg}).catch(()=>{});else window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');}
 function roundResult(r){
   markSeen(r.round_no);
@@ -883,21 +897,23 @@ function duelWaiting(r){
 }
 async function createNextRound(){
   if(D.wins_a>=WIN_TARGET||D.wins_b>=WIN_TARGET)return null;
-  const roundNo=RND.length+1;
+  const roundNo=(RND.length?Math.max(...RND.map(r=>r.round_no)):0)+1;
   const used=await usedQuestionsBetween(D.a,D.b);
   RND.forEach(r=>(r.question_ids||[]).forEach(id=>used.add(id)));
   const pool=pickPool(roundNo,used,D.spicy!==false);
   if(pool.length<ROUND_Q)return null;
-  const {data:exist}=await sb.from('rounds').select('*').eq('duel_id',D.id).eq('round_no',roundNo).maybeSingle();
-  if(exist)return exist;
+  // list-select, NOT maybeSingle: maybeSingle errors on duplicate rows, which used to make
+  // every open insert yet another copy of the same round.
+  const {data:exist}=await sb.from('rounds').select('*').eq('duel_id',D.id).eq('round_no',roundNo);
+  if(exist&&exist.length)return canonRounds(exist)[0];
   const picked=shuffle(pool).slice(0,ROUND_Q).sort((x,y)=>QBYID[x].lvl-QBYID[y].lvl);
   const {data:nr,error}=await sb.from('rounds').insert({duel_id:D.id,round_no:roundNo,question_ids:picked}).select().single();
-  if(error){const {data:ex2}=await sb.from('rounds').select('*').eq('duel_id',D.id).eq('round_no',roundNo).maybeSingle();return ex2||null;}
+  if(error){const {data:ex2}=await sb.from('rounds').select('*').eq('duel_id',D.id).eq('round_no',roundNo);return (ex2&&ex2.length)?canonRounds(ex2)[0]:null;}
   return nr;
 }
 async function finishByWins(){const patch={status:'finished',winner:D.wins_a>D.wins_b?D.a:(D.wins_b>D.wins_a?D.b:null),updated_at:new Date().toISOString()};await sb.from('duels').update(patch).eq('id',D.id);D={...D,...patch};}
 async function duelResult(){
-  spin();const {data:rounds}=await sb.from('rounds').select('*').eq('duel_id',D.id).order('round_no');RND=rounds||[];
+  spin();const {data:rounds}=await sb.from('rounds').select('*').eq('duel_id',D.id).order('round_no');RND=canonRounds(rounds);
   const myW=myRole==='a'?D.wins_a:D.wins_b,opW=myRole==='a'?D.wins_b:D.wins_a,iWon=D.winner===me.id,tie=!D.winner;
   const {data:all}=await sb.from('duels').select('winner').or(`and(a.eq.${me.id},b.eq.${oppId}),and(a.eq.${oppId},b.eq.${me.id})`).eq('status','finished');
   let h2hMe=0,h2hOp=0;(all||[]).forEach(d=>{if(d.winner===me.id)h2hMe++;else if(d.winner===oppId)h2hOp++;});
@@ -910,7 +926,7 @@ async function duelResult(){
     <div class="footer-btn stack"><button class="btn" onclick="rematch()">Rematch ${esc(oppName)} →</button>
       <button class="btn ghost" onclick="goHome()">← My duels</button></div>`;
 }
-async function rematch(){const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${oppId}),and(a.eq.${oppId},b.eq.${me.id})`).eq('status','active').maybeSingle();if(ex)return openDuel(ex.id);await createDuelWith({id:oppId,username:oppName},D.spicy!==false);}
+async function rematch(){const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${oppId}),and(a.eq.${oppId},b.eq.${me.id})`).eq('status','active').order('updated_at',{ascending:false}).limit(1);if(ex&&ex.length)return openDuel(ex[0].id);await createDuelWith({id:oppId,username:oppName},D.spicy!==false);}
 
 // ---------- LEADERBOARD ----------
 async function leaderboard(){
@@ -918,8 +934,9 @@ async function leaderboard(){
   const {data:duels}=await sb.from('duels').select('id,a,b,a_name,b_name').or(`a.eq.${me.id},b.eq.${me.id}`);
   const ids=(duels||[]).map(d=>d.id);const dById=Object.fromEntries((duels||[]).map(d=>[d.id,d]));
   const acc={};
-  if(ids.length){const {data:rs}=await sb.from('rounds').select('*').in('duel_id',ids);
-    (rs||[]).forEach(r=>{const d=dById[r.duel_id];if(!d)return;const meA=d.a===me.id,oid=meA?d.b:d.a,opName=meA?d.b_name:d.a_name;
+  if(ids.length){const {data:rsAll}=await sb.from('rounds').select('*').in('duel_id',ids);
+    const perDuel={};(rsAll||[]).forEach(r=>{(perDuel[r.duel_id]=perDuel[r.duel_id]||[]).push(r);});
+    Object.values(perDuel).flatMap(canonRounds).forEach(r=>{const d=dById[r.duel_id];if(!d)return;const meA=d.a===me.id,oid=meA?d.b:d.a,opName=meA?d.b_name:d.a_name;
       const opGuess=meA?r.b_guesses:r.a_guesses,mySelf=meA?r.a_self:r.b_self;
       if(!opGuess||!mySelf)return;acc[oid]=acc[oid]||{name:opName,c:0,t:0};
       r.question_ids.forEach((qid,i)=>{acc[oid].t++;acc[oid].c+=scoreOne(QBYID[qid],opGuess[i],mySelf[i]);});});}
