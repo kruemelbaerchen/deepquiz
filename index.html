@@ -50,8 +50,9 @@
   .spicy-row{display:flex; align-items:center; gap:10px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; font-size:14px; cursor:pointer; margin-top:8px;}
   .spicy-row input{width:18px; height:18px; accent-color:var(--accent); cursor:pointer; flex-shrink:0;}
   .slider-val{text-align:center; font-weight:800; color:var(--accent); font-size:15px; margin-top:10px;}
-  .qshare{cursor:pointer; opacity:.5; font-size:14px; margin-left:auto; padding:2px 4px;}
+  .qshare{cursor:pointer; opacity:.85; font-size:16px; margin-left:auto; padding:2px 5px;}
   .qshare:hover{opacity:1;}
+  .fbrow .qshare{margin-left:10px; flex-shrink:0;}
   .ovrow .q .qshare{float:right; margin-left:8px;}
   .sim{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin:12px 0 2px; text-align:center;}
   .sim .pct{font-size:32px; font-weight:800; background:linear-gradient(90deg,var(--accent),var(--gold)); -webkit-background-clip:text; background-clip:text; color:transparent;}
@@ -601,13 +602,24 @@ async function home(){
 // per-person overview: head-to-head, current duel, full history
 async function opponentScreen(i){
   const g=OPP[i];if(!g)return;topRight();$top.textContent='';spin();
-  // similarity profile: computed from both players' OWN answers on shared questions —
-  // "how similar ARE we", as opposed to the duel's "how well do you KNOW me"
+  // Similarity profile: "how similar ARE we", as opposed to the duel's "how well do
+  // you KNOW me". Source is strictly this pair's RESOLVED rounds: both players have
+  // already seen those answers in the reveal. Never use self_answers here! They span
+  // other duels, so the card would reveal answers to questions this pair can still be
+  // asked (that actually happened live: the card spoiled a question one round early).
   let sim='';
   try{
-    const {data:ans}=await sb.from('self_answers').select('user_id,question_id,answer').in('user_id',[me.id,g.oid]);
-    const mine={},theirs={};(ans||[]).forEach(a=>{(a.user_id===me.id?mine:theirs)[a.question_id]=a.answer;});
-    const common=Object.keys(mine).filter(qid=>theirs[qid]!==undefined&&QBYID[qid]);
+    const {data:prs}=await sb.from('rounds').select('*').in('duel_id',g.duels.map(d=>d.id));
+    const mine={},theirs={};
+    const perDuel={};(prs||[]).forEach(r=>{(perDuel[r.duel_id]=perDuel[r.duel_id]||[]).push(r);});
+    Object.values(perDuel).flatMap(canonRounds).forEach(r=>{
+      if(r.a_correct==null)return;
+      const d=g.duels.find(x=>x.id===r.duel_id);if(!d)return;
+      const meA=d.a===me.id,ms=meA?r.a_self:r.b_self,ts=meA?r.b_self:r.a_self;
+      if(!ms||!ts)return;
+      r.question_ids.forEach((qid,i)=>{if(QBYID[qid]&&ms[i]!=null&&ts[i]!=null){mine[qid]=ms[i];theirs[qid]=ts[i];}});
+    });
+    const common=Object.keys(mine);
     if(common.length>=5){
       // Every statement on this card must be literally true:
       // - the percent is the defined similarity score (exact = 1, close slider = partial)
@@ -626,9 +638,9 @@ async function opponentScreen(i){
       else if(discrete.length){const q=QBYID[discrete[0]];
         highlight=`<div class="line">⚡ One to argue about: <b>${esc(q.label)}</b><br>You: <b>${esc(answerText(q,mine[discrete[0]]))}</b> · ${esc(g.name)}: <b>${esc(answerText(q,theirs[discrete[0]]))}</b></div>`;}
       else highlight=`<div class="line">🤝 Not a single real disagreement yet. Impressive.</div>`;
-      sim=`<div class="sim"><div class="pct">${pct}%</div><div class="line" style="font-size:13px;margin-top:4px">Based on <b>${common.length}</b> questions you both answered${exact>0?`<br>Exactly the same answer on <b>${exact}</b> of them`:''}</div>${highlight}</div>`;
+      sim=`<div class="sim"><div class="pct">${pct}%</div><div class="line" style="font-size:13px;margin-top:4px">Based on the <b>${common.length}</b> questions from your duels${exact>0?`<br>Exactly the same answer on <b>${exact}</b> of them`:''}</div>${highlight}</div>`;
     } else {
-      sim=`<div class="sim"><div class="line" style="font-size:13px;margin-top:0">🔒 Answer 5 of the same questions to unlock your similarity score (${common.length} so far).</div></div>`;
+      sim=`<div class="sim"><div class="line" style="font-size:13px;margin-top:0">🔒 Play a few more rounds together to unlock your similarity score (${common.length} of 5 questions so far).</div></div>`;
     }
   }catch(e){}
   const rows=g.duels.map((d,idx)=>{
@@ -744,13 +756,29 @@ async function routeChallenge(ch){
     spin();
     const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${ch.id}),and(a.eq.${ch.id},b.eq.${me.id})`).eq('status','active').order('updated_at',{ascending:false}).limit(1);
     if(ex&&ex.length)return openDuel(ex[0].id);
+    // Pairs with duel history skip the link taster: its 3 questions were picked without
+    // knowing who opens the link, so they could repeat questions this pair already had
+    // (invariant D5). A regular duel draws with the proper exclusions instead.
+    const {data:hist}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${ch.id}),and(a.eq.${ch.id},b.eq.${me.id})`).limit(1);
+    if(hist&&hist.length){toast(`You and ${ch.n} have played before. Starting a fresh duel.`);return createDuelWith({id:ch.id,username:ch.n},true);}
   }
   guestPlay(ch);
 }
 
 // ---------- GUEST ROUND 1 (play via link, no account yet) ----------
+// Guest answers persist in localStorage: reopening the link resumes (or shows the final
+// score) instead of replaying. Without this, a guest could replay round 1 after seeing
+// the answers in the feedback and start the real duel with a perfect score (invariant I3).
+function gpKey(ch){return 'dq_gp_'+ch.id+'_'+ch.q.join('.');}
+function gpSave(){try{localStorage.setItem(gpKey(GP.ch),JSON.stringify({s:GP.selfA,g:GP.guesses}));}catch(e){}}
+function gpLoad(ch){try{return JSON.parse(localStorage.getItem(gpKey(ch))||'null');}catch(e){return null;}}
 function guestPlay(ch){
-  GP={ch,idx:0,phase:'self',selfA:[],guesses:[],fb:null};
+  const saved=gpLoad(ch);
+  GP={ch,idx:0,phase:'self',selfA:saved&&saved.s?saved.s.slice():[],guesses:saved&&saved.g?saved.g.slice():[],fb:null};
+  if(GP.guesses.length>=ROUND_Q)return gpResult(); // this link was already played: straight to the score
+  const s=GP.selfA.length,g=GP.guesses.length;
+  if(s>g){GP.idx=g;GP.phase='guess';}else{GP.idx=s;GP.phase='self';}
+  if(GP.idx>0||GP.phase==='guess'){topRight();return gpRender();} // resume mid-round, skip the intro
   topRight();
   screen.innerHTML=`<div class="mt2 center"><div class="big-emoji">👀</div><h2><span style="color:var(--accent)">${esc(ch.n)}</span> challenged you</h2>
     <p class="sub mt">Answer each question about <b>yourself</b>, then guess what <b>${esc(ch.n)}</b> said. You’ll see right away if you got it. Round 1 works without an account.</p></div>
@@ -775,9 +803,9 @@ function gpRender(){
     <div id="body">${inputHTML(q,self?'gpself':'gpguess')}</div>`;
 }
 function gpSelf(v){if(!GP||!GP.await||GP.await.k!=='self')return;GP.await=null;
-  GP.selfA[GP.idx]=v;GP.phase='guess';gpRender();}
+  GP.selfA[GP.idx]=v;gpSave();GP.phase='guess';gpRender();}
 function gpGuess(v){if(!GP||!GP.await||GP.await.k!=='guess')return;GP.await=null;
-  GP.guesses[GP.idx]=v;GP.fb={guess:v,actual:GP.ch.a[GP.idx]};gpRender();}
+  GP.guesses[GP.idx]=v;gpSave();GP.fb={guess:v,actual:GP.ch.a[GP.idx]};gpRender();}
 function gpFbNext(){if(!GP||!GP.await||GP.await.k!=='fb')return;GP.await=null;
   GP.fb=null;
   if(GP.idx<ROUND_Q-1){GP.idx++;GP.phase='self';gpRender();}
@@ -844,7 +872,7 @@ function fbHTML(q,guessV,actualV,oppN){
   return `<div class="modebar guess">🎯 GUESS ${esc((oppN||'').toUpperCase())}</div>
     <div class="qtext" style="font-size:19px; margin-bottom:16px">${esc(q.label)}</div>
     <div class="fbig">${ic}</div><div class="fbverdict ${cls}">${verdict}</div>
-    <div class="fbrow them"><span class="lbl">${esc(oppN)} answered</span><b>${esc(answerText(q,actualV))}</b></div>
+    <div class="fbrow them"><span class="lbl">${esc(oppN)} answered</span><b>${esc(answerText(q,actualV))}</b><span class="qshare" onclick="shareFb('${q.id}',${actualV})" title="Quote this in WhatsApp">📤</span></div>
     <div class="fbrow"><span class="lbl">You guessed</span><b>${esc(answerText(q,guessV))}</b></div>`;
 }
 function duelHeader(){
@@ -904,13 +932,23 @@ function viewRound(n){const r=RND.find(x=>x.round_no===n);if(!r)return;
     <div class="footer-btn"><button class="btn ghost" onclick="openDuel('${D.id}')">Back to duel</button></div>`;}
 function dgStart(){
   const r=playRound, st=roundStage(r), oppR=myRole==='a'?'b':'a';
-  const mySelf=r[myRole+'_self'], hasSelf=mySelf!=null&&mySelf.length===r.question_ids.length;
+  const mySelf=r[myRole+'_self']||[], myG=r[myRole+'_guesses']||[];
+  const hasSelf=mySelf.length===r.question_ids.length;
   let mode;
   if(st.stage==='s_self')mode='self_only';
   else if(st.stage==='s_guess')mode='guess_only';
   else mode=hasSelf?'guess_only':'interleaved'; // t_play
   const tgt=r[oppR+'_self'];
-  DG={round:r,idx:0,mode,phase:mode==='guess_only'?'guess':'self',selfA:hasSelf?mySelf.slice():[],guesses:[],targetSelf:tgt?tgt.slice():[],fb:null};
+  // Answers persist per question (see dgSelf/dgGuess), so a quit mid-turn RESUMES here
+  // instead of restarting. Restarting must never re-open a question whose feedback was
+  // already shown; that would hand out free points (invariant I3).
+  let idx,phase;
+  if(mode==='self_only'){idx=Math.min(mySelf.length,ROUND_Q-1);phase='self';}
+  else if(mode==='guess_only'){idx=Math.min(myG.length,ROUND_Q-1);phase='guess';}
+  else {const s=mySelf.length,g=myG.length;
+    if(s>g){idx=Math.min(g,ROUND_Q-1);phase='guess';}
+    else {idx=Math.min(s,ROUND_Q-1);phase='self';}}
+  DG={round:r,idx,mode,phase,selfA:mySelf.slice(),guesses:myG.slice(),targetSelf:tgt?tgt.slice():[],fb:null};
   dgRender();
 }
 function dgRender(){
@@ -934,14 +972,22 @@ function dgRender(){
     ${chip}<div class="who">${who}</div><div class="qtext">${esc(q.label)}</div>
     <div id="body">${inputHTML(q,self?'dgself':'dgguess')}</div>`;
 }
-function dgSelf(v){if(!DG||!DG.await||DG.await.k!=='self')return;DG.await=null;
+async function dgSelf(v){if(!DG||!DG.await||DG.await.k!=='self')return;DG.await=null;
   DG.selfA[DG.idx]=v;
+  // persist as a growing prefix; blocked once the round is resolved
+  const {error}=await sb.from('rounds').update({[myRole+'_self']:DG.selfA.slice(0,DG.idx+1)}).eq('id',DG.round.id).is('a_correct',null);
+  if(error){toast('Couldn’t save. Check your connection.');dgRender();return;}
   if(DG.mode==='interleaved'){DG.phase='guess';dgRender();}
   else if(DG.idx<ROUND_Q-1){DG.idx++;dgRender();}
   else dgSubmit();
 }
-function dgGuess(v){if(!DG||!DG.await||DG.await.k!=='guess')return;DG.await=null;
-  DG.guesses[DG.idx]=v;DG.fb={guess:v,actual:DG.targetSelf[DG.idx]};dgRender();}
+async function dgGuess(v){if(!DG||!DG.await||DG.await.k!=='guess')return;DG.await=null;
+  DG.guesses[DG.idx]=v;
+  // the guess is saved BEFORE the answer is revealed, so quitting and replaying the
+  // turn can never re-open a question you have already seen the answer to
+  const {error}=await sb.from('rounds').update({[myRole+'_guesses']:DG.guesses.slice(0,DG.idx+1)}).eq('id',DG.round.id).is('a_correct',null);
+  if(error){toast('Couldn’t save. Check your connection.');dgRender();return;}
+  DG.fb={guess:v,actual:DG.targetSelf[DG.idx]};dgRender();}
 function dgFbNext(){if(!DG||!DG.await||DG.await.k!=='fb')return;DG.await=null;
   DG.fb=null;
   if(DG.idx<ROUND_Q-1){DG.idx++;DG.phase=DG.mode==='interleaved'?'self':'guess';dgRender();}
@@ -949,13 +995,9 @@ function dgFbNext(){if(!DG||!DG.await||DG.await.k!=='fb')return;DG.await=null;
 }
 async function dgSubmit(){
   if(DG._sub)return;DG._sub=true;spin();
-  const r=DG.round,patch={};
-  if(DG.mode!=='guess_only')patch[myRole+'_self']=DG.selfA;
-  if(DG.mode!=='self_only')patch[myRole+'_guesses']=DG.guesses;
-  // Lock on the field that completes THIS turn → a re-submit is a no-op, so a resolved
-  // round's winner can never be flipped and a turn can't be played twice.
-  const lock=DG.mode==='self_only'?myRole+'_self':myRole+'_guesses';
-  await sb.from('rounds').update(patch).eq('id',r.id).is(lock,null);
+  const r=DG.round;
+  // The answers themselves were already written question by question (dgSelf/dgGuess);
+  // resolved rounds stay locked because those writes require a_correct to be null.
   await sb.from('duels').update({updated_at:new Date().toISOString()}).eq('id',D.id); // bump so "your turn" duels sort to the top
   if(DG.mode!=='guess_only'){const ups=r.question_ids.map((qid,i)=>({user_id:me.id,question_id:qid,answer:DG.selfA[i]}));await sb.from('self_answers').upsert(ups);ups.forEach(u=>me.answered&&me.answered.add(u.question_id));}
   const {data:fresh}=await sb.from('rounds').select('*').eq('id',r.id).maybeSingle();
@@ -1006,6 +1048,10 @@ function shareAnswer(qid,roundNo){
 // share the question itself (no answers) — curiosity hook
 function shareQuestion(qid){const q=QBYID[qid];if(!q)return;
   shareOut(`DeepQuiz just asked me: “${q.label}” 👀 Would you dare to answer? ${baseUrl()}`);}
+// quote straight from the feedback screen (works in duels and in the guest round)
+function shareFb(qid,v){const q=QBYID[qid];if(!q)return;
+  const n=(DG&&DG.fb)?oppName:(GP&&GP.ch?GP.ch.n:'');
+  shareOut(`${n}’s answer to “${q.label}”: “${answerText(q,v)}” 👀 ${baseUrl()}`);}
 // gentle, dismissible "add to home screen" hint (PWA). Android gets the real install
 // prompt (captured via beforeinstallprompt); iOS only allows the manual Share-menu way.
 function installHint(){
