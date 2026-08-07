@@ -694,24 +694,26 @@ function screenUsername(){
 }
 
 // ---------- HOME ----------
-async function home(){
-  topRight();location.hash='';spin();
+// Screens nest: my duels > this person > this duel > one round. "Back" always means
+// one level up, so buildOpp() can fill OPP without rendering the home screen first.
+// Fills OPP (one entry per person) without rendering anything, so both the home
+// screen and the "back one level" jump can use it.
+async function buildOpp(){
   const {data:duels}=await sb.from('duels').select('*').or(`a.eq.${me.id},b.eq.${me.id}`).order('updated_at',{ascending:false});
   const list=duels||[];
   const activeIds=list.filter(d=>d.status==='active').map(d=>d.id);
-  let byDuel={};
+  const byDuel={};
   if(activeIds.length){const {data:rs}=await sb.from('rounds').select('duel_id,round_no,question_ids,a_self,b_self,a_guesses,b_guesses,a_correct,created_at').in('duel_id',activeIds);
     (rs||[]).forEach(r=>{(byDuel[r.duel_id]=byDuel[r.duel_id]||[]).push(r);});}
-  // one row per PERSON: current duel state up front, full history behind opponentScreen
   const groups={};OPP=[];
   list.forEach(d=>{const meA=d.a===me.id,oid=meA?d.b:d.a,oname=meA?d.b_name:d.a_name;
     let g=groups[oid];if(!g){g=groups[oid]={oid,name:oname,duels:[],w:0,l:0,dr:0,active:null};OPP.push(g);}
     g.duels.push(d);
     if(d.status==='active'){if(!g.active)g.active=d;}
     else if(d.winner===me.id)g.w++;else if(d.winner)g.l++;else g.dr++;});
-  // Sorted into three buckets so the actionable duels are never buried. A long list of
-  // people you're waiting on makes the app feel dead, and past opponents don't belong
-  // in a list of duels at all, so they sit behind a toggle.
+  // Three buckets so the actionable duels are never buried. A long list of people
+  // you're waiting on makes the app feel dead, and past opponents don't belong in a
+  // list of duels at all, so they sit behind a toggle.
   OPP.forEach(g=>{
     if(!g.active){g.kind='past';return;}
     const meA=g.active.a===me.id,myR=meA?'a':'b';
@@ -721,13 +723,27 @@ async function home(){
     g.kind=turn===myR?'turn':'waiting';
     g.score=`${meA?g.active.wins_a:g.active.wins_b}–${meA?g.active.wins_b:g.active.wins_a}`;
   });
-  const row=(g,i,badge,sub)=>`<div class="duel-row" onclick="opponentScreen(${i})">${spine(g.name)}
+}
+async function backToOpponent(){
+  if(!oppId)return goHome();
+  spin();
+  await buildOpp();
+  const i=OPP.findIndex(g=>g.oid===oppId);
+  return i>=0?opponentScreen(i):goHome();
+}
+async function home(){
+  topRight();location.hash='';spin();
+  await buildOpp();
+  // A row badged "Play" goes straight into the duel: that is what the badge promises,
+  // and the person overview is one "Back" away from there. Rows with nothing to play
+  // open the overview instead, where the interesting things (similarity, history) are.
+  const row=(g,i,badge,sub,go)=>`<div class="duel-row" onclick="${go||`opponentScreen(${i})`}">${spine(g.name)}
     <div class="meta"><div class="t">${esc(g.name)}</div><div class="s">${sub}</div></div>${badge}</div>`;
   const mine=OPP.map((g,i)=>({g,i}));
   const turn=mine.filter(x=>x.g.kind==='turn'), waiting=mine.filter(x=>x.g.kind==='waiting'), past=mine.filter(x=>x.g.kind==='past');
   let body='';
   if(turn.length)body+=`<div class="section-t">Your turn (${turn.length})</div>`
-    +turn.map(({g,i})=>row(g,i,'<span class="badge turn">Play</span>',`${g.score} · first to ${WIN_TARGET}`)).join('');
+    +turn.map(({g,i})=>row(g,i,'<span class="badge turn">Play</span>',`${g.score} · first to ${WIN_TARGET}`,`openDuel('${g.active.id}')`)).join('');
   if(waiting.length)body+=`<div class="section-t">Waiting for them (${waiting.length})</div>`
     +waiting.map(({g,i})=>row(g,i,'<span class="badge wait">Waiting</span>',`${g.score} · first to ${WIN_TARGET}`)).join('');
   if(!turn.length)body+=waiting.length
@@ -1086,12 +1102,17 @@ function matchScreen(cur){
   const st=roundStage(cur), myTurn=st.turn===myRole;
   let action;
   if(myTurn){
-    const label=st.stage==='s_guess'?`Guess ${esc(oppName)}`:st.stage==='s_self'?(dispNo(cur)===1?'Start round 1':`Answer 3 for round ${dispNo(cur)}`):`Play round ${dispNo(cur)}`;
+    // Label the action the player wants ("play the round"), not the mechanics of it.
+    // The hint underneath explains what the turn actually consists of.
+    const label=st.stage==='s_guess'?`Guess ${esc(oppName)}`
+      :(st.stage==='s_self'&&dispNo(cur)===1)?'Start the duel'   // only the very first move
+      :`Play round ${dispNo(cur)}`;
     const hint=st.stage==='s_self'?`Answer 3 questions about yourself. Then it’s ${esc(oppName)}’s turn.`:st.stage==='s_guess'?`${esc(oppName)} has played. Guess their answers to win the round.`:`Answer about yourself and guess what ${esc(oppName)} said.`;
-    action=`<p class="hint" style="margin-bottom:10px">${hint}</p><button class="btn" onclick="dgStart()">${label}</button>`;
+    action=`<p class="hint" style="margin-bottom:10px">${hint}</p><button class="btn" onclick="dgStart()">${label}</button>
+      <button class="btn ghost" onclick="backToOpponent()">Back</button>`;
   } else {
     action=`<div class="center sub" style="margin:14px 0">⏳ Waiting for <b style="color:var(--text)">${esc(oppName)}</b> to take their turn on round ${dispNo(cur)}.</div>
-      <button class="btn secondary" onclick="nudge()">📣 Nudge ${esc(oppName)}</button><button class="btn ghost" onclick="goHome()">My duels</button>`;
+      <button class="btn secondary" onclick="nudge()">📣 Nudge ${esc(oppName)}</button><button class="btn ghost" onclick="backToOpponent()">Back</button>`;
   }
   screen.innerHTML=`<div class="mt"><h2>You vs ${esc(oppName)}</h2></div>${duelHeader()}
     ${resolved.length?`<div class="section-t">Rounds so far</div>${rows}`:''}
@@ -1250,13 +1271,14 @@ function roundResult(r){
     <h2>${tie?'Round tied':iWon?'You win the round!':esc(oppName)+' wins the round'}</h2>
     <p class="sub">You ${myC} · ${esc(oppName)} ${opC}</p></div>${duelHeader()}
     <div class="section-t">This round</div>${roundRevealHtml(r)}
-    <div class="footer-btn">${finished?`<button class="btn" onclick="duelResult()">See the final result</button>`:`<button class="btn" onclick="openDuel('${D.id}')">Continue</button>`}</div>`;
+    <div class="footer-btn stack">${finished?`<button class="btn" onclick="duelResult()">See the final result</button>`:`<button class="btn" onclick="openDuel('${D.id}')">Continue</button>
+      <button class="btn ghost" onclick="backToOpponent()">Back</button>`}</div>`;
 }
 function duelWaiting(r){
   $top.textContent=`Round ${dispNo(r)}`;
   screen.innerHTML=`<div class="mt2 center"><div class="big-emoji">⏳</div><h2>Your move is in!</h2>
     <p class="sub mt">Now it's <b style="color:var(--text)">${esc(oppName)}</b>'s turn for round ${dispNo(r)}. You'll see the result once they play.</p></div>
-    ${duelHeader()}<div class="footer-btn stack"><button class="btn" onclick="nudge()">📣 Nudge ${esc(oppName)}</button><button class="btn ghost" onclick="goHome()">Back to my duels</button></div>`;
+    ${duelHeader()}<div class="footer-btn stack"><button class="btn" onclick="nudge()">📣 Nudge ${esc(oppName)}</button><button class="btn ghost" onclick="backToOpponent()">Back</button></div>`;
 }
 async function createNextRound(){
   if(D.wins_a>=WIN_TARGET||D.wins_b>=WIN_TARGET)return null;
@@ -1291,7 +1313,7 @@ async function duelResult(){
     <p class="sub">${myW}–${opW} vs ${esc(oppName)} · Head-to-head: ${h2hMe}–${h2hOp}</p></div>
     ${ov||'<p class="sub">—</p>'}
     <div class="footer-btn stack"><button class="btn" onclick="rematch()">Rematch ${esc(oppName)}</button>
-      <button class="btn ghost" onclick="goHome()">My duels</button></div>`;
+      <button class="btn ghost" onclick="backToOpponent()">Back</button></div>`;
 }
 async function rematch(){const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${oppId}),and(a.eq.${oppId},b.eq.${me.id})`).eq('status','active').order('updated_at',{ascending:false}).limit(1);if(ex&&ex.length)return openDuel(ex[0].id);await createDuelWith({id:oppId,username:oppName},D.spicy!==false);}
 
