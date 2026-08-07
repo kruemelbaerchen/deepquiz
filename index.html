@@ -655,11 +655,24 @@ async function doSignup(){
   if(pendingDuel){const x=pendingDuel;pendingDuel=null;location.hash='';return openDuel(x);}
   route();
 }
+// The hidden login address is derived from a name, which used to be the display
+// name — so renaming someone broke their login (and Supabase refuses to change the
+// address afterwards). profiles.login_key stores the name the account was created
+// with; the display name can then change freely. No login_key (or no column yet)
+// means the display name is still the login name, exactly as before.
+async function loginEmailFor(typed){
+  try{
+    const safe=typed.replace(/[%_\\]/g,c=>'\\'+c);
+    const {data,error}=await sb.from('profiles').select('username,login_key').ilike('username',safe).limit(1);
+    if(!error&&data&&data[0]&&data[0].login_key)return emailForUsername(data[0].login_key);
+  }catch(e){}
+  return emailForUsername(typed);
+}
 async function doLogin(){
   const username=val('username'),password=val('password');setErr('');
   if(!username||!password)return setErr('Enter your username and password.');
   busy('authBtn',true);
-  const email=await emailForUsername(username);
+  const email=await loginEmailFor(username);
   const {data,error}=await sb.auth.signInWithPassword({email,password});
   if(error){busy('authBtn',false);return setErr('Wrong username or password.');}
   await loadMe(data.user);
