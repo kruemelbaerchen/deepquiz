@@ -13,32 +13,40 @@
 <meta name="apple-mobile-web-app-title" content="DeepQuiz">
 <style>
   :root{
-    --bg1:#13102a; --bg2:#1d1738; --card:#2a2348; --card2:#352c5a;
-    --accent:#ff7eaa; --accent2:#c77dff; --gold:#ffd166;
-    --green:#4ce3a4; --red:#ff7286; --yellow:#ffce5c;
-    --text:#ffffff; --muted:#cdc2ea; --line:#4a3d72; --blue:#8cc2ff;
+    --bg1:#0d0822; --bg2:#1a1140; --card:#241a54; --card2:#30246e;
+    --accent:#ff5f96; --accent2:#b06bff; --gold:#ffcc4d;
+    --green:#3ee9a4; --red:#ff6b81; --yellow:#ffd166;
+    --text:#ffffff; --muted:#c7b9f0; --line:#4a3888; --blue:#7cc4ff;
   }
   *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent;}
   body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
-    background:radial-gradient(circle at 30% 8%, #261b4d, #13102a 60%);
+    background:
+      radial-gradient(820px 480px at 12% -8%, rgba(176,107,255,.30), transparent 60%),
+      radial-gradient(680px 420px at 95% 6%, rgba(255,95,150,.22), transparent 58%),
+      linear-gradient(180deg,#1a1140 0%,#0d0822 60%);
     min-height:100vh; min-height:100dvh; display:flex; align-items:center; justify-content:center; color:var(--text); padding:16px;}
   .phone{width:400px; max-width:100%; height:840px; max-height:97vh; max-height:97dvh;
-    background:linear-gradient(165deg,var(--bg2),var(--bg1)); border-radius:34px;
+    background:linear-gradient(168deg,#251b58 0%,#160f3a 52%,#0f0a28 100%); border-radius:34px;
     box-shadow:0 30px 80px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.06);
     overflow:hidden; display:flex; flex-direction:column; position:relative;}
   .topbar{padding:16px 22px 8px; display:flex; align-items:center; justify-content:space-between; font-size:13px; color:var(--muted);}
   .topbar .right{display:flex; gap:12px; align-items:center;}
   .topbar a{color:var(--muted); cursor:pointer; text-decoration:none;}
   .screen{flex:1; overflow-y:auto; padding:8px 22px 22px; display:flex; flex-direction:column;}
+  /* Children are flex items in a column: without this they squeeze below their own
+     content once the screen is full (rows collapsed 69px -> 28px and cut their text
+     in half). Keep natural heights and let .screen scroll instead. */
+  .screen>*{flex-shrink:0;}
   .screen::-webkit-scrollbar{width:0;}
   h1{font-size:32px; font-weight:800; letter-spacing:-.6px; line-height:1.08;}
   h2{font-size:23px; font-weight:700; line-height:1.25; margin-bottom:4px;}
   .sub{color:var(--muted); font-size:15px; line-height:1.5;}
   .logo{font-weight:800; font-size:18px; background:linear-gradient(90deg,var(--accent),var(--gold)); -webkit-background-clip:text; background-clip:text; color:transparent;}
-  .btn{background:linear-gradient(90deg,var(--accent),#c77dff); color:#fff; border:none; padding:16px; border-radius:16px;
-    font-size:16px; font-weight:700; width:100%; cursor:pointer; transition:transform .12s, box-shadow .2s; box-shadow:0 8px 24px rgba(255,126,170,.32);}
+  /* dark label on the bright gradient: white would only reach 2.9:1 on these colors */
+  .btn{background:linear-gradient(100deg,var(--accent),var(--accent2)); color:#180a2b; border:none; padding:16px; border-radius:16px;
+    font-size:16px; font-weight:700; width:100%; cursor:pointer; transition:transform .12s, box-shadow .2s; box-shadow:0 10px 28px rgba(255,95,150,.34);}
   .btn:active{transform:scale(.97);} .btn:disabled{opacity:.5; box-shadow:none; cursor:default;}
-  .btn.secondary{background:rgba(255,255,255,.08); box-shadow:none; color:var(--text);}
+  .btn.secondary{background:rgba(255,255,255,.10); box-shadow:none; color:var(--text); border:1px solid var(--line);}
   .btn.ghost{background:transparent; box-shadow:none; color:var(--muted); border:1px solid var(--line);}
   .pill{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; padding:5px 11px; border-radius:99px; background:rgba(255,255,255,.08);}
   .l1{color:#7ee0a0;} .l2{color:#6fb6ff;} .l3{color:#c89bff;} .l4{color:#ff7aa8;}
@@ -58,9 +66,12 @@
   .sim .pct{font-size:32px; font-weight:800; background:linear-gradient(90deg,var(--accent),var(--gold)); -webkit-background-clip:text; background-clip:text; color:transparent;}
   .sim .line{font-size:12.5px; color:var(--muted); margin-top:7px; line-height:1.45;}
   .sim .line b{color:var(--text);}
-  .install{display:flex; align-items:center; gap:10px; background:rgba(140,194,255,.1); border:1px solid var(--line); border-radius:12px; padding:11px 13px; font-size:13px; color:var(--muted); margin-top:10px; line-height:1.45;}
-  .install b{color:var(--text);}
-  .install .x{margin-left:auto; cursor:pointer; opacity:.6; padding:4px; flex-shrink:0;}
+  /* deliberately not a box: stacked under two buttons a third card looked heavy,
+     and this is the least important thing on the screen */
+  .install{display:flex; align-items:center; justify-content:center; gap:6px; font-size:12px;
+    color:var(--muted); margin-top:14px; line-height:1.5; text-align:center; opacity:.85;}
+  .install b{color:var(--text); font-weight:600;}
+  .install .x{cursor:pointer; opacity:.55; padding:2px 4px; flex-shrink:0;}
   .qhead{display:flex; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;}
   .who{color:var(--muted); font-size:14px; margin-bottom:9px;} .who b{color:var(--accent);}
   .qtext{font-size:25px; font-weight:700; line-height:1.25; margin-bottom:22px; color:var(--text);}
@@ -73,7 +84,7 @@
   .slider-wrap{margin:10px 0 6px;}
   .slider-labels{display:flex; justify-content:space-between; color:var(--muted); font-size:13px; margin-bottom:16px; gap:12px;}
   .slider-labels span{flex:1;} .slider-labels span:last-child{text-align:right;}
-  input[type=range]{width:100%; -webkit-appearance:none; appearance:none; height:8px; border-radius:99px; background:linear-gradient(90deg,#6fb6ff,#ff7aa8); outline:none;}
+  input[type=range]{width:100%; -webkit-appearance:none; appearance:none; height:9px; border-radius:99px; background:linear-gradient(90deg,var(--blue),var(--accent2),var(--accent)); outline:none;}
   input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:32px; height:32px; border-radius:50%; background:#fff; cursor:pointer; box-shadow:0 3px 10px rgba(0,0,0,.4); border:3px solid var(--accent);}
   input[type=range]::-moz-range-thumb{width:30px; height:30px; border-radius:50%; background:#fff; border:3px solid var(--accent); cursor:pointer;}
   .footer-btn{margin-top:auto; padding-top:18px;} .stack{display:flex; flex-direction:column; gap:10px;}
@@ -86,10 +97,15 @@
   .toast{position:absolute; left:50%; bottom:90px; transform:translateX(-50%) translateY(10px); opacity:0; background:#000d; color:#fff; border:1px solid var(--line); padding:10px 16px; border-radius:99px; font-size:13px; font-weight:600; transition:.25s; pointer-events:none; max-width:80%; text-align:center;}
   .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
   .linkbox{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:13px 14px; font-size:14px; color:var(--blue); word-break:break-all; line-height:1.4;}
-  .duel-row{display:flex; align-items:center; gap:12px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:13px 14px; margin-bottom:10px; cursor:pointer; transition:.15s;}
-  .duel-row:hover{border-color:var(--accent);}
-  .duel-row .av{width:40px; height:40px; border-radius:50%; background:linear-gradient(135deg,var(--accent),var(--accent2)); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px; flex-shrink:0;}
-  .duel-row .meta{flex:1; min-width:0;} .duel-row .meta .t{font-weight:700;} .duel-row .meta .s{font-size:12px; color:var(--muted); margin-top:2px;}
+  /* No avatars: a letter in a circle reads as a profile picture that never got uploaded.
+     Instead each person gets a colored spine derived from their name, so rows stay
+     recognizable at a glance and look deliberate. */
+  .duel-row{position:relative; overflow:hidden; display:flex; align-items:center; gap:12px;
+    background:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.025));
+    border:1px solid var(--line); border-radius:14px; padding:14px 15px 14px 19px; margin-bottom:10px; cursor:pointer; transition:.15s;}
+  .duel-row:hover{border-color:var(--accent); background:linear-gradient(180deg,rgba(255,255,255,.11),rgba(255,255,255,.04));}
+  .duel-row .spine{position:absolute; left:0; top:0; bottom:0; width:5px;}
+  .duel-row .meta{flex:1; min-width:0;} .duel-row .meta .t{font-weight:700; font-size:16px; letter-spacing:-.2px;} .duel-row .meta .s{font-size:12.5px; color:var(--muted); margin-top:3px;}
   .badge{font-size:11px; font-weight:800; padding:4px 9px; border-radius:99px; white-space:nowrap;}
   .badge.turn{background:rgba(76,227,164,.18); color:var(--green);}
   .badge.wait{background:rgba(255,255,255,.08); color:var(--muted);}
@@ -110,8 +126,9 @@
   .lb-row.top{border:1px solid var(--gold);}
   .lb-rank{font-weight:800; color:var(--muted); width:24px; text-align:center;} .lb-name{flex:1; font-weight:700;} .lb-pct{font-weight:800; color:var(--gold);}
   .modebar{display:flex; align-items:center; gap:8px; font-weight:800; font-size:13px; padding:9px 13px; border-radius:12px; margin-bottom:14px; letter-spacing:.4px;}
-  .modebar.self{background:rgba(140,194,255,.14); color:var(--blue); border:1px solid rgba(140,194,255,.42);}
-  .modebar.guess{background:rgba(255,126,170,.14); color:var(--accent); border:1px solid rgba(255,126,170,.42);}
+  /* tinted label bars: text is lightened here, the saturated accents drop under 4.5:1 on them */
+  .modebar.self{background:rgba(124,196,255,.14); color:#9fd2ff; border:1px solid rgba(124,196,255,.42);}
+  .modebar.guess{background:rgba(255,95,150,.14); color:#ff92b8; border:1px solid rgba(255,95,150,.42);}
   .fbig{font-size:52px; text-align:center; margin:8px 0 2px;}
   .fbverdict{text-align:center; font-weight:800; font-size:22px; margin-bottom:16px;}
   .fbverdict.ok{color:var(--green);} .fbverdict.part{color:var(--yellow);} .fbverdict.no{color:var(--red);}
@@ -177,7 +194,9 @@ const Q=[
   {id:'w11',lvl:1,fmt:'binary',label:'Sweet or savory?',options:['Sweet','Savory']},
   {id:'w12',lvl:1,fmt:'binary',label:'Window or aisle seat?',options:['Window','Aisle']},
   {id:'w13',lvl:1,fmt:'slider',label:'How competitive are you?',poles:['Just for fun','Must win']},
-  {id:'w14',lvl:1,fmt:'mc',label:'Your group-chat role?',options:['The planner','The lurker','The meme-er','The 3am replier']},
+  // retired: never drawn again, but kept here so rounds that already contain it still render.
+  // Once no active duel references it any more, this line can simply be deleted.
+  {id:'w14',lvl:1,fmt:'mc',label:'Your group-chat role?',options:['The planner','The lurker','The meme-er','The 3am replier'],retired:1},
   {id:'p11',lvl:2,fmt:'mc',label:'Your love language (receiving)?',options:['Words','Quality time','Touch','Acts of help','Gifts']},
   {id:'p12',lvl:2,fmt:'slider',label:'How easily do you trust new people?',poles:['Very slowly','Instantly']},
   {id:'p13',lvl:2,fmt:'binary',label:'Lead or follow?',options:['Lead','Follow']},
@@ -442,6 +461,106 @@ const Q=[
   {id:'s74',lvl:4,fmt:'slider',label:'Sex on the first date?',poles:['Never','If the vibe is right — yes']},
   {id:'s75',lvl:4,fmt:'slider',label:'How much do you flirt without noticing?',poles:['Never','Apparently constantly']},
   {id:'s76',lvl:4,fmt:'slider',label:'Could you date someone bad in bed?',poles:['Dealbreaker','We can work on it']},
+  // ---- pack 3: warmup ----
+  {id:'w77',lvl:1,fmt:'binary',label:'Do you make your bed in the morning?',options:['Always','Never']},
+  {id:'w78',lvl:1,fmt:'binary',label:'Movie night: cinema or couch?',options:['Cinema','Couch']},
+  {id:'w79',lvl:1,fmt:'binary',label:'Board games or video games?',options:['Board games','Video games']},
+  {id:'w80',lvl:1,fmt:'binary',label:'New gadget: read the instructions?',options:['Read them first','Figure it out']},
+  {id:'w81',lvl:1,fmt:'binary',label:'Public transport or your own car?',options:['Public transport','My own car']},
+  {id:'w82',lvl:1,fmt:'binary',label:'Phone check before getting out of bed?',options:['Instantly','Not for a while']},
+  {id:'w83',lvl:1,fmt:'binary',label:'A book you’re not enjoying?',options:['Push through','Drop it']},
+  {id:'w84',lvl:1,fmt:'binary',label:'Ketchup: fridge or cupboard?',options:['Fridge','Cupboard']},
+  {id:'w85',lvl:1,fmt:'binary',label:'Do you talk to animals like they understand?',options:['Obviously','Never']},
+  {id:'w86',lvl:1,fmt:'mc',label:'Your desk right now?',options:['Spotless','Organized chaos','A disaster','What desk?']},
+  {id:'w87',lvl:1,fmt:'mc',label:'How do you eat a slice of pizza?',options:['Fold it','Knife and fork','Crust first','Straight in']},
+  {id:'w88',lvl:1,fmt:'mc',label:'Your screenshots are mostly…',options:['Memes','Recipes and ideas','Conversations','Things I meant to buy']},
+  {id:'w89',lvl:1,fmt:'mc',label:'First thing you do on holiday?',options:['Find food','Head for the water','Explore on foot','Nap']},
+  {id:'w90',lvl:1,fmt:'mc',label:'Your coffee or tea order?',options:['Plain and simple','A whole ritual','Whatever’s fastest','Neither, thanks']},
+  {id:'w91',lvl:1,fmt:'mc',label:'Which chore do you secretly enjoy?',options:['Cooking','Vacuuming','Organizing things','None. Absolutely none.']},
+  {id:'w92',lvl:1,fmt:'mc',label:'Your handwriting is…',options:['Neat','Barely readable','Depends on the day','All capitals']},
+  {id:'w93',lvl:1,fmt:'mc',label:'On a long flight you…',options:['Sleep the whole way','Watch four films','Read or work','Talk to my neighbor']},
+  {id:'w94',lvl:1,fmt:'mc',label:'Your umbrella situation?',options:['Always have one','I just get wet','Lost it again','I own about five']},
+  {id:'w95',lvl:1,fmt:'slider',label:'How organized are your photos?',poles:['Total chaos','Sorted into albums']},
+  {id:'w96',lvl:1,fmt:'slider',label:'How planned are your weekends?',poles:['Fully improvised','Booked solid']},
+  {id:'w97',lvl:1,fmt:'slider',label:'Singing along to songs you don’t know?',poles:['Never','Full confidence, wrong words']},
+  {id:'w98',lvl:1,fmt:'slider',label:'How hot is your shower?',poles:['Barely warm','Boiling']},
+  {id:'w99',lvl:1,fmt:'slider',label:'Ordering the strangest thing on the menu?',poles:['Never','Every time']},
+  {id:'w100',lvl:1,fmt:'slider',label:'How many tabs are open on your phone?',poles:['Zero','Hundreds']},
+  // ---- pack 3: personal ----
+  {id:'p77',lvl:2,fmt:'binary',label:'Are you a good judge of character?',options:['Yes','Not really']},
+  {id:'p78',lvl:2,fmt:'binary',label:'Someone cuts the queue in front of you.',options:['I say something','I let it go']},
+  {id:'p79',lvl:2,fmt:'binary',label:'Giving or receiving gifts?',options:['Giving','Receiving']},
+  {id:'p80',lvl:2,fmt:'binary',label:'Who are you competing with?',options:['Everyone else','Only myself']},
+  {id:'p81',lvl:2,fmt:'binary',label:'Being the center of attention?',options:['Love it','Hate it']},
+  {id:'p82',lvl:2,fmt:'binary',label:'A friend’s partner is bad for them. You…',options:['Say it straight','Stay out of it']},
+  {id:'p83',lvl:2,fmt:'binary',label:'Easier for you: forgive or forget?',options:['Forgive','Forget']},
+  {id:'p84',lvl:2,fmt:'binary',label:'Do you look up people you’ve lost touch with?',options:['Sometimes','Never']},
+  {id:'p85',lvl:2,fmt:'binary',label:'In your group you’re the one who…',options:['Plans it','Shows up']},
+  {id:'p86',lvl:2,fmt:'mc',label:'What makes you feel appreciated?',options:['Being thanked','Being asked for advice','Being included','Being remembered']},
+  {id:'p87',lvl:2,fmt:'mc',label:'Your first reaction to criticism?',options:['Defend myself','Take notes','Go quiet','Ask for details']},
+  {id:'p88',lvl:2,fmt:'mc',label:'200 unread messages in a group chat.',options:['Read every one','Skim it','Mute it','Leave the group']},
+  {id:'p89',lvl:2,fmt:'mc',label:'You realize mid-argument that you’re wrong.',options:['Admit it right away','Change the subject','Argue anyway','Admit it later, quietly']},
+  {id:'p90',lvl:2,fmt:'mc',label:'Where does most of your money go?',options:['Rent and bills','Food and going out','Travel','Impulse buys']},
+  {id:'p91',lvl:2,fmt:'mc',label:'You made a mistake at work. You…',options:['Own it publicly','Fix it quietly','Overexplain','Panic first, then fix it']},
+  {id:'p92',lvl:2,fmt:'mc',label:'What kind of tired are you usually?',options:['Physically','Mentally','Emotionally','I’m fine, actually']},
+  {id:'p93',lvl:2,fmt:'mc',label:'Your best friend would say your best quality is…',options:['My loyalty','My humor','My honesty','How calm I am']},
+  {id:'p94',lvl:2,fmt:'mc',label:'A party where you know nobody. You…',options:['Find the host','Find the kitchen','Find one person and stay','Find the door']},
+  {id:'p95',lvl:2,fmt:'slider',label:'How much do you need strangers to like you?',poles:['Not at all','A lot']},
+  {id:'p96',lvl:2,fmt:'slider',label:'Silence in a group is…',poles:['Completely fine','Mine to fill']},
+  {id:'p97',lvl:2,fmt:'slider',label:'How much do you compare yourself to others?',poles:['Never','Constantly']},
+  {id:'p98',lvl:2,fmt:'slider',label:'Do you say what you actually think?',poles:['I hold back','Always out loud']},
+  {id:'p99',lvl:2,fmt:'slider',label:'How much does your mood show on your face?',poles:['Perfect poker face','Everyone knows instantly']},
+  {id:'p100',lvl:2,fmt:'slider',label:'Alone time needed after a big social day?',poles:['None','A full day']},
+  // ---- pack 3: deep ----
+  {id:'d77',lvl:3,fmt:'binary',label:'What takes more courage?',options:['Staying','Leaving']},
+  {id:'d78',lvl:3,fmt:'binary',label:'Would you be a good parent?',options:['Yes','I worry about it']},
+  {id:'d79',lvl:3,fmt:'binary',label:'Understood or admired?',options:['Understood','Admired']},
+  {id:'d80',lvl:3,fmt:'binary',label:'Has someone ever surprised you with how much they cared?',options:['Yes','Not yet']},
+  {id:'d81',lvl:3,fmt:'binary',label:'Do you ask for enough?',options:['Yes','I ask for far too little']},
+  {id:'d82',lvl:3,fmt:'binary',label:'Would you read what people really think of you?',options:['Yes','Absolutely not']},
+  {id:'d83',lvl:3,fmt:'binary',label:'Your life so far: luck or choices?',options:['Mostly luck','Mostly choices']},
+  {id:'d84',lvl:3,fmt:'binary',label:'Do you feel like an adult?',options:['Yes','Still waiting for that']},
+  {id:'d85',lvl:3,fmt:'binary',label:'Younger you looking at your life now?',options:['Proud','A little scared']},
+  {id:'d86',lvl:3,fmt:'mc',label:'What do you wish someone had told you at 20?',options:['Slow down','Take the risk','Choose better people','You’re doing fine']},
+  {id:'d87',lvl:3,fmt:'mc',label:'What do you avoid thinking about?',options:['Money','Getting older','A relationship','My health']},
+  {id:'d88',lvl:3,fmt:'mc',label:'When did you last feel really proud of yourself?',options:['Recently','A few months ago','Years ago','I can’t remember']},
+  {id:'d89',lvl:3,fmt:'mc',label:'What would make you feel successful?',options:['Freedom','Being needed','Making something that lasts','Peace and quiet']},
+  {id:'d90',lvl:3,fmt:'mc',label:'What did you inherit from your family?',options:['Their work ethic','Their humor','Their fears','Their silence']},
+  {id:'d91',lvl:3,fmt:'mc',label:'If you could apologize to one person…',options:['A parent','An ex','A friend I dropped','Myself']},
+  {id:'d92',lvl:3,fmt:'mc',label:'The hardest part of getting older?',options:['Time speeding up','Losing people','My body','Nothing, I like it']},
+  {id:'d93',lvl:3,fmt:'mc',label:'When everything gets too much, you…',options:['Sleep','Move my body','Call someone','Disappear for a while']},
+  {id:'d94',lvl:3,fmt:'mc',label:'Which fear runs your decisions?',options:['Rejection','Failure','Being trapped','Missing out']},
+  {id:'d95',lvl:3,fmt:'slider',label:'How honest are you with the person closest to you?',poles:['I edit a lot','Completely']},
+  {id:'d96',lvl:3,fmt:'slider',label:'Being alone with your own thoughts?',poles:['I avoid it','I need it']},
+  {id:'d97',lvl:3,fmt:'slider',label:'How much has love disappointed you?',poles:['Not at all','Deeply']},
+  {id:'d98',lvl:3,fmt:'slider',label:'How clear is what you want in five years?',poles:['No idea','Crystal clear']},
+  {id:'d99',lvl:3,fmt:'slider',label:'Do you trust that things will work out?',poles:['Not at all','Completely']},
+  {id:'d100',lvl:3,fmt:'slider',label:'How much of your day did you actually choose?',poles:['Almost none','Almost all of it']},
+  // ---- pack 3: spicy ----
+  {id:'s77',lvl:4,fmt:'binary',label:'Would you say a fantasy out loud?',options:['Yes','Never']},
+  {id:'s78',lvl:4,fmt:'binary',label:'Date someone your friends dislike?',options:['Yes','No']},
+  {id:'s79',lvl:4,fmt:'binary',label:'A jealous partner is…',options:['Flattering','A red flag']},
+  {id:'s80',lvl:4,fmt:'binary',label:'A date with someone ten years older?',options:['Yes','No']},
+  {id:'s81',lvl:4,fmt:'binary',label:'Can exes be friends?',options:['Yes','Never']},
+  {id:'s82',lvl:4,fmt:'binary',label:'Desired or adored?',options:['Desired','Adored']},
+  {id:'s83',lvl:4,fmt:'binary',label:'Kiss and tell?',options:['My friends know everything','I say nothing']},
+  {id:'s84',lvl:4,fmt:'binary',label:'A weekend away with someone you just met?',options:['Yes','No way']},
+  {id:'s85',lvl:4,fmt:'binary',label:'Same bed on the first night?',options:['Sure','Separate, please']},
+  {id:'s86',lvl:4,fmt:'mc',label:'What makes someone instantly more attractive?',options:['How they laugh','How they smell','How they listen','How they move']},
+  {id:'s87',lvl:4,fmt:'mc',label:'Your perfect date?',options:['A long dinner','Something active','Drinks and chaos','Staying in']},
+  {id:'s88',lvl:4,fmt:'mc',label:'First thing you notice in their bedroom?',options:['How clean it is','The bed','The little details','I’m not looking around']},
+  {id:'s89',lvl:4,fmt:'mc',label:'Where do you flirt best?',options:['In person','Over text','On the dance floor','In the DMs']},
+  {id:'s90',lvl:4,fmt:'mc',label:'What ends a situationship for you?',options:['Mixed signals','Boredom','Someone catching feelings','They just vanish']},
+  {id:'s91',lvl:4,fmt:'mc',label:'You want them to stay the night. You…',options:['Ask directly','Suggest a film','Pour another drink','Wait for them to say it']},
+  {id:'s92',lvl:4,fmt:'mc',label:'Which is hotter?',options:['Being chased','Doing the chasing','The slow build','The surprise']},
+  {id:'s93',lvl:4,fmt:'mc',label:'Your partner’s ex texts them. You…',options:['Ask about it','Trust it and move on','Joke about it','Quietly spiral']},
+  {id:'s94',lvl:4,fmt:'mc',label:'Morning-after texts?',options:['Send one right away','Wait a day','Never send them','Depends entirely']},
+  {id:'s95',lvl:4,fmt:'slider',label:'How easily do you get attached?',poles:['Never','Way too fast']},
+  {id:'s96',lvl:4,fmt:'slider',label:'Being teased in public?',poles:['Not for me','Love it']},
+  {id:'s97',lvl:4,fmt:'slider',label:'Saying what you don’t like in bed?',poles:['I say nothing','I say everything']},
+  {id:'s98',lvl:4,fmt:'slider',label:'How romantic are you when nobody’s watching?',poles:['Not at all','Hopeless romantic']},
+  {id:'s99',lvl:4,fmt:'slider',label:'How much does their smell matter?',poles:['Barely','Enormously']},
+  {id:'s100',lvl:4,fmt:'slider',label:'How often do you think about an ex?',poles:['Never','More than I admit']},
 ];
 const QBYID=Object.fromEntries(Q.map(q=>[q.id,q]));
 const LEVELS=[{n:1,emoji:'🟢',name:'Warmup'},{n:2,emoji:'🔵',name:'Personal'},{n:3,emoji:'🟣',name:'Deep'},{n:4,emoji:'🔴',name:'Spicy'}];
@@ -463,12 +582,15 @@ function copyText(t){if(navigator.clipboard&&navigator.clipboard.writeText)navig
 function busy(id,on){const b=document.getElementById(id);if(b){b.disabled=on;if(on){b.dataset._t=b.textContent;b.textContent='…';}else if(b.dataset._t)b.textContent=b.dataset._t;}}
 async function emailForUsername(u){const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(u.trim().toLowerCase()));return 'u'+Array.from(new Uint8Array(buf)).slice(0,12).map(b=>b.toString(16).padStart(2,'0')).join('')+'@deepquizplayers.com';}
 function topRight(){$top.innerHTML=me&&me.username?`<a onclick="goHome()">${esc(me.username)}</a> · <a onclick="doLogout()">Log out</a>`:'';}
-function initial(n){return (n||'?').trim().charAt(0).toUpperCase();}
+// stable color per person, derived from the name (no avatars, see .duel-row .spine)
+function hueFor(n){let h=0;for(const c of String(n||'?'))h=(h*31+c.charCodeAt(0))%360;return h;}
+function spine(n){const h=hueFor(n);return `<span class="spine" style="background:linear-gradient(180deg,hsl(${h} 88% 70%),hsl(${(h+38)%360} 85% 58%))"></span>`;}
+function nameTint(n){const h=hueFor(n);return `hsl(${h} 85% 74%)`;}
 
 // Default auth mode is LOGIN (most visitors already have an account by now).
 // Exception: guests arriving via an invite link get signup (set in gpResult) — they're new.
 let me=null, authMode='login', pendingPlayUser=null;
-let D=null,RND=[],DG=null,myRole=null,oppId=null,oppName=null,playRound=null,recentOpps=[],GP=null,pendingChallenge=null,pendingDuel=null,OPP=[];
+let D=null,RND=[],DG=null,myRole=null,oppId=null,oppName=null,playRound=null,recentOpps=[],GP=null,pendingChallenge=null,pendingDuel=null,OPP=[],showPast=false;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();window._instEvt=e;});
 
 async function init(){
@@ -504,7 +626,7 @@ function authScreen(){
   screen.innerHTML=`<div class="mt"><h1>Deep<span style="color:var(--accent)">Quiz</span></h1>${ctx}</div>
     <div class="mt2 stack">
       <input class="field" id="username" placeholder="Username (shown to friends)" maxlength="24" autocomplete="off">
-      <input class="field" id="password" placeholder="Password (min. 6 chars)" type="password" autocomplete="${signup?'new-password':'current-password'}">
+      <input class="field" id="password" placeholder="Password (at least 6 characters)" type="password" autocomplete="${signup?'new-password':'current-password'}">
     </div><div class="err" id="autherr"></div>
     <div class="footer-btn stack">
       <button class="btn" id="authBtn">${signup?'Create account':'Log in'}</button>
@@ -574,29 +696,44 @@ async function home(){
     g.duels.push(d);
     if(d.status==='active'){if(!g.active)g.active=d;}
     else if(d.winner===me.id)g.w++;else if(d.winner)g.l++;else g.dr++;});
-  const rows=OPP.length?OPP.map((g,i)=>{
-    let badge,sub;
-    if(g.active){
-      const meA=g.active.a===me.id,myR=meA?'a':'b';
-      const rs=canonRounds(byDuel[g.active.id]||[]),cur=rs[rs.length-1];
-      let turn=cur?roundStage(cur).turn:myR;
-      if(cur&&turn==null)turn=starterRole(cur.round_no+1); // round resolved, next not created yet → next starter acts
-      badge=turn===myR?'<span class="badge turn">Your turn</span>':'<span class="badge wait">Waiting</span>';
-      sub=`${meA?g.active.wins_a:g.active.wins_b}–${meA?g.active.wins_b:g.active.wins_a} · first to ${WIN_TARGET}`;
-    }else{
+  // Sorted into three buckets so the actionable duels are never buried. A long list of
+  // people you're waiting on makes the app feel dead, and past opponents don't belong
+  // in a list of duels at all, so they sit behind a toggle.
+  OPP.forEach(g=>{
+    if(!g.active){g.kind='past';return;}
+    const meA=g.active.a===me.id,myR=meA?'a':'b';
+    const rs=canonRounds(byDuel[g.active.id]||[]),cur=rs[rs.length-1];
+    let turn=cur?roundStage(cur).turn:myR;
+    if(cur&&turn==null)turn=starterRole(cur.round_no+1); // round resolved, next not created yet → next starter acts
+    g.kind=turn===myR?'turn':'waiting';
+    g.score=`${meA?g.active.wins_a:g.active.wins_b}–${meA?g.active.wins_b:g.active.wins_a}`;
+  });
+  const row=(g,i,badge,sub)=>`<div class="duel-row" onclick="opponentScreen(${i})">${spine(g.name)}
+    <div class="meta"><div class="t">${esc(g.name)}</div><div class="s">${sub}</div></div>${badge}</div>`;
+  const mine=OPP.map((g,i)=>({g,i}));
+  const turn=mine.filter(x=>x.g.kind==='turn'), waiting=mine.filter(x=>x.g.kind==='waiting'), past=mine.filter(x=>x.g.kind==='past');
+  let body='';
+  if(turn.length)body+=`<div class="section-t">Your turn (${turn.length})</div>`
+    +turn.map(({g,i})=>row(g,i,'<span class="badge turn">Play</span>',`${g.score} · first to ${WIN_TARGET}`)).join('');
+  if(waiting.length)body+=`<div class="section-t">Waiting for them (${waiting.length})</div>`
+    +waiting.map(({g,i})=>row(g,i,'<span class="badge wait">Waiting</span>',`${g.score} · first to ${WIN_TARGET}`)).join('');
+  if(!turn.length)body+=waiting.length
+    ?`<p class="sub" style="margin-top:12px">Nothing to play right now. Give someone a nudge, or start a new duel.</p>`
+    :`<p class="sub" style="margin-top:12px">No duels running. Challenge someone below 👇</p>`;
+  if(past.length){
+    body+=`<div class="section-t" style="cursor:pointer" onclick="showPast=!showPast;home()">${showPast?'▾':'▸'} Past opponents (${past.length})</div>`;
+    if(showPast)body+=past.map(({g,i})=>{
       const last=g.duels[0],meA=last.a===me.id,myW=meA?last.wins_a:last.wins_b,opW=meA?last.wins_b:last.wins_a;
-      badge=last.winner===me.id?`<span class="badge won">Won ${myW}-${opW}</span>`:(last.winner?`<span class="badge lost">Lost ${myW}-${opW}</span>`:`<span class="badge draw">Draw</span>`);
-      sub=`${g.w}–${g.l} all-time`;
-    }
-    if(g.duels.length>1)sub+=` · ${g.duels.length} duels`;
-    return `<div class="duel-row" onclick="opponentScreen(${i})"><div class="av">${esc(initial(g.name))}</div>
-      <div class="meta"><div class="t">${esc(g.name)}</div><div class="s">${sub}</div></div>${badge}</div>`;
-  }).join(''):'<p class="sub">No duels yet. Challenge a friend below 👇</p>';
+      const badge=last.winner===me.id?`<span class="badge won">Won ${myW}-${opW}</span>`:(last.winner?`<span class="badge lost">Lost ${myW}-${opW}</span>`:`<span class="badge draw">Draw</span>`);
+      return row(g,i,badge,`${g.w}–${g.l} all-time${g.duels.length>1?` · ${g.duels.length} duels`:''}`);
+    }).join('');
+  }
   screen.innerHTML=`<div class="mt"><h2>Hi ${esc(me.username)} 👋</h2></div>
-    <div class="section-t">Your duels</div><div>${rows}</div>${installHint()}
+    ${body}
     <div class="footer-btn stack">
       <button class="btn" onclick="challengeScreen()">⚔️ Challenge a friend</button>
-      <button class="btn secondary" onclick="leaderboard()">🏆 Who knows me best</button></div>`;
+      <button class="btn secondary" onclick="leaderboard()">🏆 Who knows me best</button></div>
+    ${installHint()}`;
 }
 
 // per-person overview: head-to-head, current duel, full history
@@ -652,8 +789,9 @@ async function opponentScreen(i){
   }).join('');
   const primary=g.active?`<button class="btn" onclick="openDuel('${g.active.id}')">Continue duel</button>`
     :`<button class="btn" onclick="oppRematch(${i})">⚔️ Challenge ${esc(g.name)} again</button>`;
-  screen.innerHTML=`<div class="mt center"><div class="av" style="width:56px;height:56px;margin:0 auto 10px;font-size:22px">${esc(initial(g.name))}</div>
-    <h2>You vs ${esc(g.name)}</h2>
+  screen.innerHTML=`<div class="mt center">
+    <div style="width:56px;height:5px;border-radius:99px;margin:0 auto 14px;background:linear-gradient(90deg,hsl(${hueFor(g.name)} 88% 70%),hsl(${(hueFor(g.name)+38)%360} 85% 58%))"></div>
+    <h2>You vs <span style="color:${nameTint(g.name)}">${esc(g.name)}</span></h2>
     <p class="sub">Head-to-head: ${g.w}–${g.l}${g.dr?` (${g.dr} draw${g.dr>1?'s':''})`:''} · ${g.duels.length} duel${g.duels.length>1?'s':''}</p></div>
     ${sim}
     <div class="section-t">Duels</div>${rows}
@@ -674,17 +812,17 @@ async function challengeScreen(){
   all.forEach(d=>{const meA=d.a===me.id,oid=meA?d.b:d.a,oname=meA?d.b_name:d.a_name;if(seen.has(oid))return;seen.add(oid);
     let w=0,l=0;all.forEach(x=>{const xa=x.a===me.id,xoid=xa?x.b:x.a;if(xoid!==oid||x.status!=='finished')return;if(x.winner===me.id)w++;else if(x.winner)l++;});
     recentOpps.push({id:oid,name:oname,w,l});});
-  const oppHtml=recentOpps.length?recentOpps.map((o,i)=>`<div class="duel-row" onclick="challengeOpponent(${i})"><div class="av">${esc(initial(o.name))}</div>
-    <div class="meta"><div class="t">${esc(o.name)}</div><div class="s">${o.w}–${o.l} all-time</div></div><span class="badge turn">Duel ⚔️</span></div>`).join('')
+  const oppHtml=recentOpps.length?recentOpps.map((o,i)=>`<div class="duel-row" onclick="challengeOpponent(${i})">${spine(o.name)}
+    <div class="meta"><div class="t">${esc(o.name)}</div><div class="s">${o.w}–${o.l} all-time</div></div><span class="badge turn">Duel</span></div>`).join('')
     :'<p class="sub">No opponents yet. Search for someone below.</p>';
-  const linkSection = `<p class="sub" style="margin-bottom:10px">Answer 3 questions about yourself. Whoever opens your link answers the same 3, guesses yours, and that counts as round 1.</p><button class="btn secondary" onclick="setupLink()">Answer 3 &amp; get my link</button>`;
+  const linkSection = `<p class="sub" style="margin-bottom:10px">You answer 3 questions about yourself and get a link to send. Whoever opens it plays those same questions as round 1 against you.</p><button class="btn secondary" onclick="setupLink()">Create my invite link</button>`;
   screen.innerHTML=`<div class="mt"><h2>Challenge a friend</h2></div>
     <label class="spicy-row"><input type="checkbox" id="spicyTog" checked> <span>Include 🔴 Spicy questions <span style="color:var(--muted)">(they show up from round 3)</span></span></label>
     <div class="section-t">Recent opponents</div><div>${oppHtml}</div>
     <div class="section-t">Find someone by username</div>
     <input class="field" id="usearch" placeholder="Type a username…" oninput="searchUsers(this.value)" autocomplete="off">
     <div id="uresults" class="mt"></div>
-    <div class="section-t">Invite someone new (your link)</div>
+    <div class="section-t">Invite someone new</div>
     ${linkSection}
     <div class="footer-btn"><button class="btn ghost" onclick="goHome()">Back</button></div>`;
 }
@@ -698,14 +836,17 @@ async function searchUsers(term){
     const {data}=await sb.from('profiles').select('id,username').ilike('username','%'+term+'%').neq('id',me.id).limit(8);
     USEARCH=data||[];
     const box2=document.getElementById('uresults'); if(!box2)return;
-    box2.innerHTML=USEARCH.length?USEARCH.map((u,i)=>`<div class="duel-row" onclick="challengeByProfile(${i})"><div class="av">${esc(initial(u.username))}</div><div class="meta"><div class="t">${esc(u.username)}</div></div><span class="badge turn">Duel ⚔️</span></div>`).join(''):'<p class="sub">No one found with that name.</p>';
+    box2.innerHTML=USEARCH.length?USEARCH.map((u,i)=>`<div class="duel-row" onclick="challengeByProfile(${i})">${spine(u.username)}<div class="meta"><div class="t">${esc(u.username)}</div></div><span class="badge turn">Duel</span></div>`).join(''):'<p class="sub">No one found with that name.</p>';
   },250);
 }
 async function challengeByProfile(i){const u=USEARCH[i];if(!u)return;
   const t=document.getElementById('spicyTog'),spicy=t?t.checked:true;spin();
   const {data:ex}=await sb.from('duels').select('id').or(`and(a.eq.${me.id},b.eq.${u.id}),and(a.eq.${u.id},b.eq.${me.id})`).eq('status','active').order('updated_at',{ascending:false}).limit(1);
   if(ex&&ex.length)return openDuel(ex[0].id);await createDuelWith(u,spicy);}
-function setupLink(){const ids=shuffle(Q.filter(q=>q.lvl<=2).map(q=>q.id)).slice(0,ROUND_Q);SU={ids,idx:0,answers:[]};suRender();} // link = round 1 → warmup/personal only
+async function setupLink(){ // link questions = round 1, so warmup/personal only, and fresh for me
+  spin();const soft=await recentQuestionsFor(me.id);
+  const ids=shuffle(pickPool(1,new Set(),soft,false)).slice(0,ROUND_Q);
+  SU={ids,idx:0,answers:[]};suRender();}
 function suRender(){const q=QBYID[SU.ids[SU.idx]],meta=lvlMeta(q.lvl);SU.await=true;$top.textContent=`Your challenge · ${SU.idx+1}/${SU.ids.length}`;
   const prog=SU.ids.map((_,i)=>`<span class="${i<SU.idx?'done':i===SU.idx?'cur':''}"></span>`).join('');
   screen.innerHTML=`<div class="prog">${prog}</div><div class="qhead"><span class="pill l${q.lvl}">${meta.emoji} ${meta.name}</span><span class="qshare" onclick="shareQuestion('${q.id}')" title="Share this question">📤</span></div>
@@ -726,12 +867,21 @@ async function challengeOpponent(i){const o=recentOpps[i];if(!o)return;
   if(ex&&ex.length)return openDuel(ex[0].id);await createDuelWith({id:o.id,username:o.name},spicy);}
 // Escalation: round 1 = 🟢/🔵 only, round 2 = up to 🟣, round 3+ = everything (🔴 only if the duel allows spicy).
 // `used` = questions this pair has already had in ANY duel together (no repeats across rematches).
-function pickPool(roundNo,used,spicyOk){
-  const cap=roundNo<=1?2:roundNo<=2?3:4, ok=q=>spicyOk||q.lvl<4;
-  let pool=Q.filter(q=>ok(q)&&q.lvl<=cap&&!used.has(q.id));
-  if(pool.length<ROUND_Q)pool=Q.filter(q=>ok(q)&&!used.has(q.id)); // relax level cap
-  if(pool.length<ROUND_Q)pool=Q.filter(ok);                        // last resort: allow repeats
-  return pool.map(q=>q.id);
+// hardUsed = never reuse (this pair already had it, invariant D5).
+// softUsed = avoid if possible (either player saw it recently in ANY duel). Pair history
+// alone was not enough: every new opponent starts at round 1, so the same warmup questions
+// kept coming back to the same player (one of them five times).
+function pickPool(roundNo,hardUsed,softUsed,spicyOk){
+  const cap=roundNo<=1?2:roundNo<=2?3:4;
+  const ok=q=>!q.retired&&(spicyOk||q.lvl<4);
+  const tiers=[
+    q=>ok(q)&&q.lvl<=cap&&!hardUsed.has(q.id)&&!softUsed.has(q.id), // ideal
+    q=>ok(q)&&q.lvl<=cap&&!hardUsed.has(q.id),                      // drop the freshness wish
+    q=>ok(q)&&!hardUsed.has(q.id),                                  // drop the level cap
+    q=>ok(q)                                                        // last resort: allow repeats
+  ];
+  for(const f of tiers){const p=Q.filter(f);if(p.length>=ROUND_Q)return p.map(q=>q.id);}
+  return Q.filter(ok).map(q=>q.id);
 }
 async function usedQuestionsBetween(x,y){
   const {data:ds}=await sb.from('duels').select('id').or(`and(a.eq.${x},b.eq.${y}),and(a.eq.${y},b.eq.${x})`);
@@ -739,13 +889,25 @@ async function usedQuestionsBetween(x,y){
   const {data:rs}=await sb.from('rounds').select('question_ids').in('duel_id',ids);
   return new Set((rs||[]).flatMap(r=>r.question_ids||[]));
 }
+async function recentQuestionsFor(userId,limit=60){
+  const {data:ds}=await sb.from('duels').select('id').or(`a.eq.${userId},b.eq.${userId}`);
+  const ids=(ds||[]).map(d=>d.id);if(!ids.length)return new Set();
+  const {data:rs}=await sb.from('rounds').select('question_ids,created_at').in('duel_id',ids).order('created_at',{ascending:false}).limit(40);
+  const out=new Set();
+  for(const r of (rs||[]))for(const q of (r.question_ids||[])){out.add(q);if(out.size>=limit)return out;}
+  return out;
+}
+async function softUsedFor(x,y){
+  const [rx,ry]=await Promise.all([recentQuestionsFor(x),recentQuestionsFor(y)]);
+  return new Set([...rx,...ry]);
+}
 async function createDuelWith(opp,spicy){
   if(spicy==null){const t=document.getElementById('spicyTog');spicy=t?t.checked:true;}
   let {data:duel,error}=await sb.from('duels').insert({a:me.id,b:opp.id,a_name:me.username,b_name:opp.username,spicy}).select().single();
   if(error)({data:duel,error}=await sb.from('duels').insert({a:me.id,b:opp.id,a_name:me.username,b_name:opp.username}).select().single()); // pre-v4 schema fallback
   if(error){toast('Could not start duel');return challengeScreen();}
-  const used=await usedQuestionsBetween(me.id,opp.id);
-  const picked=shuffle(pickPool(1,used,spicy)).slice(0,ROUND_Q).sort((x,y)=>QBYID[x].lvl-QBYID[y].lvl);
+  const hard=await usedQuestionsBetween(me.id,opp.id), soft=await softUsedFor(me.id,opp.id);
+  const picked=shuffle(pickPool(1,hard,soft,spicy)).slice(0,ROUND_Q).sort((x,y)=>QBYID[x].lvl-QBYID[y].lvl);
   const {error:rErr}=await sb.from('rounds').insert({duel_id:duel.id,round_no:1,question_ids:picked});
   if(rErr){await sb.from('duels').delete().eq('id',duel.id);toast('Could not start duel');return challengeScreen();}
   openDuel(duel.id);
@@ -1086,9 +1248,10 @@ function duelWaiting(r){
 async function createNextRound(){
   if(D.wins_a>=WIN_TARGET||D.wins_b>=WIN_TARGET)return null;
   const roundNo=(RND.length?Math.max(...RND.map(r=>r.round_no)):0)+1;
-  const used=await usedQuestionsBetween(D.a,D.b);
-  RND.forEach(r=>(r.question_ids||[]).forEach(id=>used.add(id)));
-  const pool=pickPool(roundNo,used,D.spicy!==false);
+  const hard=await usedQuestionsBetween(D.a,D.b);
+  RND.forEach(r=>(r.question_ids||[]).forEach(id=>hard.add(id)));
+  const soft=await softUsedFor(D.a,D.b);
+  const pool=pickPool(roundNo,hard,soft,D.spicy!==false);
   if(pool.length<ROUND_Q)return null;
   // list-select, NOT maybeSingle: maybeSingle errors on duplicate rows, which used to make
   // every open insert yet another copy of the same round.
